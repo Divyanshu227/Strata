@@ -8,7 +8,7 @@ export interface CachedMessage {
   createdAt: string;
 }
 
-const DB_NAME = 'MailBoxDB';
+const DB_NAME = 'StrataDB';
 const STORE_NAME = 'messages';
 
 /**

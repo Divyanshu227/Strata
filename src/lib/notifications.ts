@@ -40,7 +40,7 @@ export async function sendDiscordNotification(payload: MessagePayload) {
       ],
       timestamp: new Date().toISOString(),
       footer: {
-        text: 'MailBox Portfolio Notifier',
+        text: 'Strata Portfolio Notifier',
       },
     };
 

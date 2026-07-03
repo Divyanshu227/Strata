@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MailBox | Inbox Dashboard",
+  title: "Strata | Inbox Dashboard",
   description: "Inbox message hub for portfolio contact submissions.",
 };
 

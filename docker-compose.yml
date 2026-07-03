@@ -3,7 +3,7 @@ version: '3.8'
 services:
   redis:
     image: redis:7-alpine
-    container_name: mailbox-redis
+    container_name: strata-redis
     ports:
       - '6379:6379'
     volumes:
@@ -12,7 +12,7 @@ services:
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
-    container_name: mailbox-zookeeper
+    container_name: strata-zookeeper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -21,7 +21,7 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.4.0
-    container_name: mailbox-kafka
+    container_name: strata-kafka
     depends_on:
       - zookeeper
     ports:

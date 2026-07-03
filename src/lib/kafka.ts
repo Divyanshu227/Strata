@@ -9,7 +9,7 @@ function getKafkaProducer() {
   if (!kafka) {
     try {
       kafka = new Kafka({
-        clientId: 'mailbox-app',
+        clientId: 'strata-app',
         brokers: brokers,
         connectionTimeout: 2000,
         requestTimeout: 2000

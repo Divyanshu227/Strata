@@ -299,7 +299,7 @@ async function sendContactMessage(name, email, subject, message) {
         <div className="logoArea" style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <Mail className="logoIcon" size={24} />
-            <span className="logoText">MailBox</span>
+            <span className="logoText">Strata</span>
           </div>
           <button 
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -503,7 +503,7 @@ async function sendContactMessage(name, email, subject, message) {
                 <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-secondary)' }}>
                   <p style={{ fontSize: '14px', fontWeight: '500' }}>No messages found</p>
                   <p style={{ fontSize: '12px', marginTop: '4px', color: 'var(--text-muted)' }}>
-                    {searchQuery ? 'Try a different search query' : 'Your mailbox is empty.'}
+                    {searchQuery ? 'Try a different search query' : 'Your Strata inbox is empty.'}
                   </p>
                 </div>
               ) : (
@@ -640,7 +640,7 @@ async function sendContactMessage(name, email, subject, message) {
               <span>Step 1: Connect your Portfolio Website</span>
             </h3>
             <p className="sectionDesc">
-              Send a JSON POST request to your MailBox endpoint when a user submits your portfolio's contact form.
+              Send a JSON POST request to your Strata endpoint when a user submits your portfolio's contact form.
             </p>
             
             <div className="codeBlockHeader">

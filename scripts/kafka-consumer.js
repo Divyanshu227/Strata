@@ -12,13 +12,13 @@ if (!webhookUrl) {
 }
 
 const kafka = new Kafka({
-  clientId: 'mailbox-consumer',
+  clientId: 'strata-consumer',
   brokers: brokers,
   connectionTimeout: 3000,
   requestTimeout: 3000
 });
 
-const consumer = kafka.consumer({ groupId: 'mailbox-group' });
+const consumer = kafka.consumer({ groupId: 'strata-group' });
 
 async function run() {
   console.log('🔄 Connecting Kafka Consumer...');
@@ -81,7 +81,7 @@ async function sendDiscordNotification(payload) {
       ],
       timestamp: payload.createdAt || new Date().toISOString(),
       footer: {
-        text: 'MailBox Kafka Decoupled Worker',
+        text: 'Strata Kafka Decoupled Worker',
       },
     };
 
