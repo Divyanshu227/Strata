@@ -463,7 +463,18 @@ async function sendContactMessage(name, email, subject, message) {
             </div>
 
             <div className="messagesList">
-              {filteredMessages.length === 0 ? (
+              {isSyncing && messages.length === 0 ? (
+                Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="skeletonCard">
+                    <div className="skeletonHeader">
+                      <div className="skeletonName"></div>
+                      <div className="skeletonTime"></div>
+                    </div>
+                    <div className="skeletonSubject"></div>
+                    <div className="skeletonPreview"></div>
+                  </div>
+                ))
+              ) : filteredMessages.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-secondary)' }}>
                   <p style={{ fontSize: '14px', fontWeight: '500' }}>No messages found</p>
                   <p style={{ fontSize: '12px', marginTop: '4px', color: 'var(--text-muted)' }}>
