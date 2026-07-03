@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { saveIncomingMessage } from '@/lib/db-service';
+import { isRateLimited } from '@/lib/rate-limiter';
+import { publishMessageEvent } from '@/lib/kafka';
 import { sendDiscordNotification } from '@/lib/notifications';
 
 function getCorsHeaders() {
@@ -21,7 +23,19 @@ export async function POST(req: NextRequest) {
   const headers = getCorsHeaders();
 
   try {
-    // 1. Authenticate Token
+    // 1. Redis Rate Limiting Check
+    // Handle standard header setups for client IP identification
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || '127.0.0.1';
+    const throttled = await isRateLimited(ip);
+    
+    if (throttled) {
+      return NextResponse.json(
+        { error: 'Too many submissions. Please wait a few minutes and try again.' },
+        { status: 429, headers }
+      );
+    }
+
+    // 2. Authenticate Token
     const authHeader = req.headers.get('authorization');
     const token = process.env.API_TOKEN;
 
@@ -40,7 +54,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Parse and Validate request body
+    // 3. Parse and Validate request body
     const body = await req.json();
     const { name, email, subject, message } = body;
 
@@ -54,31 +68,40 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400, headers });
     }
 
-    // 3. Save to database
-    const savedMessage = await prisma.message.create({
-      data: {
-        name: name.trim(),
-        email: email.trim(),
-        subject: subject ? subject.trim() : null,
-        message: message.trim(),
-        status: 'unread',
-      },
+    // 4. Save to Database (handles SQLite/Supabase synchronization)
+    const savedMessage = await saveIncomingMessage({
+      name: name.trim(),
+      email: email.trim(),
+      subject: subject ? subject.trim() : null,
+      message: message.trim(),
     });
 
-    // 4. Send notification (Discord)
-    await sendDiscordNotification({
+    // 5. Publish to Kafka event stream for asynchronous Discord notifications
+    const published = await publishMessageEvent({
+      id: savedMessage.id,
       name: savedMessage.name,
       email: savedMessage.email,
       subject: savedMessage.subject,
       message: savedMessage.message,
+      createdAt: savedMessage.createdAt,
     });
 
+    if (!published) {
+      console.log('[DEBUG] [POST] Kafka event stream is offline. Falling back to direct Discord notification...');
+      await sendDiscordNotification({
+        name: savedMessage.name,
+        email: savedMessage.email,
+        subject: savedMessage.subject,
+        message: savedMessage.message,
+      });
+    }
+
     return NextResponse.json(
-      { success: true, message: 'Message saved and notification triggered.', data: savedMessage },
+      { success: true, message: 'Message processed and notification queued.', data: savedMessage },
       { status: 201, headers }
     );
   } catch (error: any) {
-    console.error('Error receiving message:', error);
+    console.error('Error receiving message API route:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500, headers }
