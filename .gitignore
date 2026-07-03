@@ -45,3 +45,6 @@ implementation_plan.md
 
 
 /src/generated/prisma
+
+# databases
+*.db
