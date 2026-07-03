@@ -299,6 +299,7 @@ html, body {
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
+  flex-shrink: 0; /* Prevents cards from shrinking and overlapping */
 }
 
 .messageCard:hover {
@@ -696,6 +697,7 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex-shrink: 0; /* Prevents cards from shrinking */
 }
 
 .skeletonCard::after {
