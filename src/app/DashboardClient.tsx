@@ -14,7 +14,9 @@ import {
   AlertCircle, 
   Sparkles,
   Send,
-  CheckSquare
+  CheckSquare,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { 
   markMessageAsRead, 
@@ -51,6 +53,7 @@ export default function DashboardClient({
   const [copiedToken, setCopiedToken] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   
   // Dynamic sync & connection states
   const [isOffline, setIsOffline] = useState(false);
@@ -292,16 +295,37 @@ async function sendContactMessage(name, email, subject, message) {
       )}
 
       {/* 1. Sidebar Panel */}
-      <aside className="sidebar">
-        <div className="logoArea">
-          <Mail className="logoIcon" size={24} />
-          <span className="logoText">MailBox</span>
+      <aside className={`sidebar ${isSidebarCollapsed ? 'sidebarCollapsed' : ''}`}>
+        <div className="logoArea" style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <Mail className="logoIcon" size={24} />
+            <span className="logoText">MailBox</span>
+          </div>
+          <button 
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '4px',
+              borderRadius: '4px',
+              transition: 'color 0.2s'
+            }}
+            title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {isSidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          </button>
         </div>
 
         <nav className="sidebarMenu">
           <button 
             className={`menuItem ${activeView === 'inbox' ? 'menuItemActive' : ''}`}
             onClick={() => setActiveView('inbox')}
+            title="Inbox"
           >
             <div className="menuItemInner">
               <Inbox size={18} />
@@ -315,6 +339,7 @@ async function sendContactMessage(name, email, subject, message) {
           <button 
             className={`menuItem ${activeView === 'settings' ? 'menuItemActive' : ''}`}
             onClick={() => setActiveView('settings')}
+            title="Integration & Settings"
           >
             <div className="menuItemInner">
               <Settings size={18} />
