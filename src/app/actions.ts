@@ -1,60 +1,75 @@
 'use server';
 
-import { markRead, toggleArchive, removeMessage, syncDatabases } from '@/lib/db-service';
+import { prisma } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
-import Database from 'better-sqlite3';
-import path from 'path';
 
-export async function triggerManualSync() {
-  try {
-    const success = await syncDatabases();
-    revalidatePath('/');
-    return success;
-  } catch (error) {
-    console.error('Failed to trigger manual sync:', error);
-    return false;
-  }
-}
-
+/**
+ * Marks a message as read in Supabase PostgreSQL.
+ */
 export async function markMessageAsRead(id: string) {
   try {
-    await markRead(id);
+    console.log(`[Server Action] Marking message ${id} as read...`);
+    const updated = await prisma.message.update({
+      where: { id },
+      data: { status: 'read' },
+    });
     revalidatePath('/');
+    return updated;
   } catch (error) {
-    console.error('Failed to mark message as read Server Action:', error);
+    console.error('[Server Action] Failed to mark message as read:', error);
+    throw new Error('Database connection failed (you might be offline).');
   }
 }
 
+/**
+ * Toggles the archived status of a message in Supabase PostgreSQL.
+ */
 export async function toggleMessageArchive(id: string, currentStatus: string) {
   try {
-    await toggleArchive(id, currentStatus);
+    const nextStatus = currentStatus === 'archived' ? 'read' : 'archived';
+    console.log(`[Server Action] Toggling archive status for ${id} to ${nextStatus}...`);
+    const updated = await prisma.message.update({
+      where: { id },
+      data: { status: nextStatus },
+    });
     revalidatePath('/');
+    return updated;
   } catch (error) {
-    console.error('Failed to toggle archive status Server Action:', error);
+    console.error('[Server Action] Failed to toggle archive status:', error);
+    throw new Error('Database connection failed (you might be offline).');
   }
 }
 
+/**
+ * Deletes a message permanently from Supabase PostgreSQL.
+ */
 export async function deleteMessage(id: string) {
   try {
-    await removeMessage(id);
+    console.log(`[Server Action] Deleting message ${id} from Supabase...`);
+    const deleted = await prisma.message.delete({
+      where: { id },
+    });
     revalidatePath('/');
+    return deleted;
   } catch (error) {
-    console.error('Failed to delete message Server Action:', error);
+    console.error('[Server Action] Failed to delete message:', error);
+    throw new Error('Database connection failed (you might be offline).');
   }
 }
 
+/**
+ * Computes and returns mailbox statistics directly from Supabase PostgreSQL.
+ */
 export async function getStats() {
   try {
-    const localDbPath = path.join(process.cwd(), 'local.db');
-    const localDb = new Database(localDbPath);
-    const total = (localDb.prepare("SELECT COUNT(*) as count FROM Message").get() as any).count;
-    const unread = (localDb.prepare("SELECT COUNT(*) as count FROM Message WHERE status = 'unread'").get() as any).count;
-    const archived = (localDb.prepare("SELECT COUNT(*) as count FROM Message WHERE status = 'archived'").get() as any).count;
+    console.log('[Server Action] Querying real-time stats from Supabase...');
+    const total = await prisma.message.count();
+    const unread = await prisma.message.count({ where: { status: 'unread' } });
+    const archived = await prisma.message.count({ where: { status: 'archived' } });
     const inbox = total - archived;
-    localDb.close();
     return { total, unread, archived, inbox };
   } catch (error) {
-    console.error('Failed to fetch stats:', error);
+    console.error('[Server Action] Failed to fetch stats:', error);
     return { total: 0, unread: 0, archived: 0, inbox: 0 };
   }
 }

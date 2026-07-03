@@ -11,7 +11,6 @@ import {
   Key, 
   Copy, 
   Check, 
-  ExternalLink, 
   AlertCircle, 
   Sparkles,
   Send,
@@ -20,9 +19,9 @@ import {
 import { 
   markMessageAsRead, 
   toggleMessageArchive, 
-  deleteMessage,
-  triggerManualSync
+  deleteMessage
 } from './actions';
+import { getCachedMessages, setCachedMessages, CachedMessage } from '@/lib/indexed-db';
 
 interface Message {
   id: string;
@@ -35,20 +34,16 @@ interface Message {
 }
 
 interface DashboardClientProps {
-  initialMessages: Message[];
   apiToken: string;
   discordConfigured: boolean;
-  isOffline: boolean;
 }
 
 export default function DashboardClient({ 
-  initialMessages, 
   apiToken, 
-  discordConfigured,
-  isOffline
+  discordConfigured
 }: DashboardClientProps) {
   // Client state
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'archived'>('all');
@@ -57,25 +52,89 @@ export default function DashboardClient({
   const [copiedCode, setCopiedCode] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   
+  // Dynamic sync & connection states
+  const [isOffline, setIsOffline] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  
   const [isPending, startTransition] = useTransition();
 
-  // Sync state if initialMessages changes (Next.js server-side revalidation updates this)
+  /**
+   * Helper to fetch latest messages from Next.js GET API route
+   * and update browser IndexedDB cache.
+   */
+  const fetchLatestMessages = async (): Promise<boolean> => {
+    setIsSyncing(true);
+    try {
+      console.log('[DashboardClient] Fetching latest messages from API...');
+      const response = await fetch('/api/messages', {
+        headers: {
+          'Authorization': `Bearer ${apiToken}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API returned status ${response.status}`);
+      }
+      
+      const data = await response.json();
+      if (data.success && Array.isArray(data.messages)) {
+        console.log(`[DashboardClient] Successfully loaded ${data.messages.length} messages from server.`);
+        setMessages(data.messages);
+        
+        // Write to IndexedDB local cache
+        await setCachedMessages(data.messages);
+        setIsOffline(false);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.warn('[DashboardClient] Network request failed. Serving offline cache:', err);
+      setIsOffline(true);
+      return false;
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Initial Load: Instantly load from IndexedDB cache, then pull fresh server data
   useEffect(() => {
-    setMessages(initialMessages);
-  }, [initialMessages]);
+    const loadInitialData = async () => {
+      console.log('[DashboardClient] Mounting component. Checking IndexedDB cache...');
+      const cached = await getCachedMessages();
+      
+      if (cached && cached.length > 0) {
+        console.log(`[DashboardClient] Loaded ${cached.length} messages from IndexedDB.`);
+        setMessages(cached as Message[]);
+      }
+      
+      // Pull fresh data in the background
+      await fetchLatestMessages();
+    };
+    loadInitialData();
+  }, []);
 
   const selectedMessage = messages.find(m => m.id === selectedMessageId);
 
   // Trigger mark as read when a message is selected
   useEffect(() => {
     if (selectedMessage && selectedMessage.status === 'unread') {
-      // Optimistic update
-      setMessages(prev => 
-        prev.map(m => m.id === selectedMessage.id ? { ...m, status: 'read' } : m)
-      );
+      const previousMessages = [...messages];
+      const updatedMessages = messages.map(m => m.id === selectedMessage.id ? { ...m, status: 'read' } : m);
+      
+      // Optimistic updates (UI + IndexedDB cache)
+      setMessages(updatedMessages);
+      setCachedMessages(updatedMessages as CachedMessage[]);
       
       startTransition(async () => {
-        await markMessageAsRead(selectedMessage.id);
+        try {
+          await markMessageAsRead(selectedMessage.id);
+        } catch (err) {
+          console.warn('[DashboardClient] Mark read failed on server. Reverting to previous status.');
+          setMessages(previousMessages);
+          setCachedMessages(previousMessages as CachedMessage[]);
+          setIsOffline(true);
+          triggerToast('Offline fallback: Status reverted locally.');
+        }
       });
     }
   }, [selectedMessageId]);
@@ -93,12 +152,14 @@ export default function DashboardClient({
     const isCurrentlyArchived = msg.status === 'archived';
     const newStatus = isCurrentlyArchived ? 'read' : 'archived';
     
-    // Optimistic update
-    setMessages(prev => 
-      prev.map(m => m.id === msg.id ? { ...m, status: newStatus } : m)
-    );
+    const previousMessages = [...messages];
+    const updatedMessages = messages.map(m => m.id === msg.id ? { ...m, status: newStatus } : m);
     
-    // Clear selection if we move away from archived tab or vice-versa
+    // Optimistic Update
+    setMessages(updatedMessages);
+    setCachedMessages(updatedMessages as CachedMessage[]);
+    
+    // Clear selection if we move away from active tab view
     if (activeTab === 'archived' && newStatus !== 'archived') {
       setSelectedMessageId(null);
     } else if (activeTab === 'unread' && newStatus === 'archived') {
@@ -106,21 +167,41 @@ export default function DashboardClient({
     }
 
     startTransition(async () => {
-      await toggleMessageArchive(msg.id, msg.status);
-      triggerToast(isCurrentlyArchived ? 'Message moved to Inbox' : 'Message archived');
+      try {
+        await toggleMessageArchive(msg.id, msg.status);
+        triggerToast(isCurrentlyArchived ? 'Message moved to Inbox' : 'Message archived');
+      } catch (err) {
+        console.warn('[DashboardClient] Toggle archive failed on server. Reverting.');
+        setMessages(previousMessages);
+        setCachedMessages(previousMessages as CachedMessage[]);
+        setIsOffline(true);
+        triggerToast('Offline fallback: Archive status reverted.');
+      }
     });
   };
 
   // Action: Delete Message
   const handleDelete = async (msg: Message) => {
     if (confirm(`Are you sure you want to delete the message from ${msg.name}?`)) {
-      // Optimistic update
-      setMessages(prev => prev.filter(m => m.id !== msg.id));
+      const previousMessages = [...messages];
+      const updatedMessages = messages.filter(m => m.id !== msg.id);
+      
+      // Optimistic delete
+      setMessages(updatedMessages);
+      setCachedMessages(updatedMessages as CachedMessage[]);
       setSelectedMessageId(null);
 
       startTransition(async () => {
-        await deleteMessage(msg.id);
-        triggerToast('Message deleted permanently');
+        try {
+          await deleteMessage(msg.id);
+          triggerToast('Message deleted permanently');
+        } catch (err) {
+          console.warn('[DashboardClient] Delete action failed on server. Reverting.');
+          setMessages(previousMessages);
+          setCachedMessages(previousMessages as CachedMessage[]);
+          setIsOffline(true);
+          triggerToast('Offline fallback: Message restored.');
+        }
       });
     }
   };
@@ -151,12 +232,10 @@ export default function DashboardClient({
 
   // Filter messages based on Search & Tabs
   const filteredMessages = messages.filter(msg => {
-    // 1. Tab filter
     if (activeTab === 'unread' && msg.status !== 'unread') return false;
     if (activeTab === 'archived' && msg.status !== 'archived') return false;
-    if (activeTab === 'all' && msg.status === 'archived') return false; // Hide archived by default in "All" inbox tab
+    if (activeTab === 'all' && msg.status === 'archived') return false; // Hide archived in Inbox
 
-    // 2. Search query filter
     if (searchQuery.trim() === '') return true;
     const query = searchQuery.toLowerCase();
     return (
@@ -175,7 +254,7 @@ export default function DashboardClient({
   // Code integration snippet for user's portfolio site
   const integrationSnippet = `// API call from your Portfolio Website (HTML/JS)
 async function sendContactMessage(name, email, subject, message) {
-  const endpoint = '${process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000')}/api/messages';
+  const endpoint = '${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/api/messages';
   const apiToken = '${apiToken}';
 
   try {
@@ -318,16 +397,17 @@ async function sendContactMessage(name, email, subject, message) {
                         borderRadius: '50%',
                         background: 'var(--success)',
                         display: 'inline-block',
+                        animation: isSyncing ? 'pulse 1s infinite' : 'none'
                       }}></span>
-                      <span>Live Sync</span>
+                      <span>{isSyncing ? 'Syncing...' : 'Live Sync'}</span>
                     </div>
                   )}
                   
                   <button 
                     onClick={async () => {
-                      triggerToast('Synchronizing databases...');
-                      const ok = await triggerManualSync();
-                      triggerToast(ok ? 'Sync completed successfully!' : 'Sync failed (Offline fallback active)');
+                      triggerToast('Checking server for updates...');
+                      const ok = await fetchLatestMessages();
+                      triggerToast(ok ? 'Sync completed successfully!' : 'Sync failed (Offline cache active)');
                     }}
                     style={{
                       background: 'var(--bg-tertiary)',
@@ -342,7 +422,7 @@ async function sendContactMessage(name, email, subject, message) {
                       alignItems: 'center',
                       gap: '4px'
                     }}
-                    title="Synchronize local SQLite cache with Supabase"
+                    title="Fetch latest messages from server"
                   >
                     Sync
                   </button>
