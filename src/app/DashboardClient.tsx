@@ -229,6 +229,20 @@ export default function DashboardClient({
     loadInitialData();
   }, [project.id]);
 
+  // Real-time updates: Poll for new messages every 5 seconds (only when tab is visible)
+  useEffect(() => {
+    console.log('[DashboardClient] Starting background message polling cycle...');
+    const interval = setInterval(async () => {
+      if (document.visibilityState === 'visible' && !isOffline) {
+        await fetchLatestMessages();
+      }
+    }, 5000);
+    
+    return () => {
+      clearInterval(interval);
+    };
+  }, [project.apiKey, isOffline]);
+
   const selectedMessage = messages.find(m => m.id === selectedMessageId);
 
   // Trigger mark as read when a message is selected
