@@ -1,6 +1,4 @@
 import { pbkdf2Sync, randomBytes, createHmac, timingSafeEqual } from 'crypto';
-import { writeFileSync } from 'fs';
-import path from 'path';
 import nodemailer from 'nodemailer';
 import { prisma } from '@/lib/db';
 
@@ -134,28 +132,22 @@ Password Mode: ${isDefaultPassword ? 'Default password is 12345678' : 'Custom pa
       });
       console.log(`[Email Dispatch] Success: Real welcome email dispatched to ${email}`);
     } catch (err: any) {
-      console.error('Welcome email dispatch via SMTP failed, writing mock file:', err.message);
-      writeMockEmailLog(email, subject, body);
+      console.error('Welcome email dispatch via SMTP failed, logging to console:', err.message);
+      logMockEmailConsole(email, subject, body);
     }
   } else {
-    writeMockEmailLog(email, subject, body);
+    logMockEmailConsole(email, subject, body);
   }
 }
 
-function writeMockEmailLog(email: string, subject: string, body: string) {
-  const logPath = path.join(process.cwd(), 'mock-emails.log');
-  const logContent = `==================================================
+function logMockEmailConsole(email: string, subject: string, body: string) {
+  console.log(`
+===================== MOCK WELCOME EMAIL =====================
 Date: ${new Date().toISOString()}
 To: ${email}
 Subject: ${subject}
---------------------------------------------------
+--------------------------------------------------------------
 ${body}
-==================================================\n\n`;
-
-  try {
-    writeFileSync(logPath, logContent, { flag: 'a' });
-    console.log(`[Email Mock Log] Welcome email logged to: ${logPath}`);
-  } catch (err: any) {
-    console.error('Failed to log mock email:', err.message);
-  }
+==============================================================
+`);
 }

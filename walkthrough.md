@@ -43,8 +43,8 @@ npm run dev
 5. The onboarding wizard will submit, authorize, write the HTTP-only cookie, and redirect you to the main developer dashboard.
 
 ### Step 3: Verify the Registration Success Email
-1. Open the file [mock-emails.log](file:///C:/Users/divya/Desktop/Strata/mock-emails.log) inside your project root.
-2. Confirm the formatted log entry exists:
+1. Look at your server terminal console logs (where `npm run dev` is active).
+2. Confirm that a formatted welcome email log block is outputted directly in the terminal:
    * **Subject**: `Registration Successful on Strata`
    * **To**: `jane@strata.io`
    * **Body**: *"Welcome Jane Doe! Registration is successful. Kindly change password upon login, default password is 12345678."*
