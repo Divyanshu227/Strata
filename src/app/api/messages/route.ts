@@ -216,6 +216,7 @@ export async function POST(req: NextRequest) {
       message: savedMessage.message,
       createdAt: savedMessage.createdAt,
       spamClassification,
+      spamScore: aiMetrics.spamScore,
     });
 
     // Fail-open: Direct webhook dispatch fallback if Kafka is down and Discord is enabled
@@ -228,6 +229,7 @@ export async function POST(req: NextRequest) {
           subject: savedMessage.subject,
           message: savedMessage.message,
           spamClassification,
+          spamScore: aiMetrics.spamScore,
         }, project.discordWebhook, project.name);
       }
     }

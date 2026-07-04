@@ -4,6 +4,7 @@ interface MessagePayload {
   subject?: string | null;
   message: string;
   spamClassification?: string | null;
+  spamScore?: number | null;
 }
 
 export async function sendDiscordNotification(
@@ -50,9 +51,10 @@ export async function sendDiscordNotification(
     };
 
     if (payload.spamClassification) {
+      const scoreStr = payload.spamScore != null ? `\n**Score**: ${Math.round(payload.spamScore * 100)}%` : '';
       embed.fields.push({
         name: '🛡️ Spam Analysis',
-        value: payload.spamClassification === 'Spam' ? '🔴 Spam' : payload.spamClassification === 'Suspicious' ? '🟡 Suspicious' : '🟢 Safe',
+        value: `${payload.spamClassification === 'Spam' ? '🔴 Spam' : payload.spamClassification === 'Suspicious' ? '🟡 Suspicious' : '🟢 Safe'}${scoreStr}`,
         inline: false,
       });
     }

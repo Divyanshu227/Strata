@@ -124,9 +124,10 @@ async function handleDiscordNotification(project, payload) {
     };
 
     if (payload.spamClassification) {
+      const scoreStr = payload.spamScore != null ? `\n**Score**: ${Math.round(payload.spamScore * 100)}%` : '';
       embed.fields.push({
         name: '🛡️ Spam Analysis',
-        value: payload.spamClassification === 'Spam' ? '🔴 Spam' : payload.spamClassification === 'Suspicious' ? '🟡 Suspicious' : '🟢 Safe',
+        value: `${payload.spamClassification === 'Spam' ? '🔴 Spam' : payload.spamClassification === 'Suspicious' ? '🟡 Suspicious' : '🟢 Safe'}${scoreStr}`,
         inline: false,
       });
     }
