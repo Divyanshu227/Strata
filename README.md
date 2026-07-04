@@ -99,9 +99,3 @@ To send a message from your website's contact form to Strata, make a simple `POS
   "message": "I would love to hire you for a project!"
 }
 ```
-
----
-
-## ☁️ Deployment
-
-Strata is built to be deployed anywhere. For a complete guide on how to deploy Strata (including both Serverless and Kafka-based approaches), please see the **[Deployment Guide](deployment.md)**.
