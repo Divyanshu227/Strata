@@ -1,3 +1,5 @@
+import nodemailer from 'nodemailer';
+
 interface MessagePayload {
   name: string;
   email: string;
@@ -114,5 +116,50 @@ export async function sendTelegramNotification(
     }
   } catch (error) {
     console.error('Failed to send telegram notification:', error);
+  }
+}
+
+export async function sendEmailNotification(
+  payload: MessagePayload,
+  emailRecipient: string,
+  projectName?: string
+) {
+  const { SMTP_HOST, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env;
+  let spamStr = '';
+  
+  if (payload.spamClassification) {
+    const scoreStr = payload.spamScore != null ? `\nScore: ${Math.round(payload.spamScore * 100)}%` : '';
+    spamStr = `\n\n--- 🛡️ Spam Analysis ---\nClassification: ${payload.spamClassification}${scoreStr}`;
+  }
+  
+  const textBody = `You received a new submission on Strata!\n\nProject: ${projectName || 'Unknown'}\nName: ${payload.name}\nEmail: ${payload.email}\nSubject: ${payload.subject || 'N/A'}\n\nMessage:\n${payload.message}${spamStr}`;
+  const mailSubject = `📬 [Strata] New message from ${payload.name}: ${payload.subject || 'No Subject'}`;
+
+  if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: SMTP_HOST,
+        port: 587,
+        secure: false,
+        auth: { user: SMTP_USER, pass: SMTP_PASS }
+      });
+
+      await transporter.sendMail({
+        from: SMTP_FROM || '"Strata Portal" <no-reply@strata-app.com>',
+        to: emailRecipient,
+        subject: mailSubject,
+        text: textBody
+      });
+
+      console.log(`Email notification sent successfully to <${emailRecipient}>`);
+    } catch (err: any) {
+      console.error('Nodemailer failed to send notification:', err.message);
+    }
+  } else {
+    console.log(`\n  --- [MOCK EMAIL SENT SUCCESS] ---`);
+    console.log(`  To: ${emailRecipient}`);
+    console.log(`  Subject: ${mailSubject}`);
+    console.log(`  Body:\n${textBody.split('\\n').map(l => '  ' + l).join('\\n')}`);
+    console.log(`  ---------------------------------\n`);
   }
 }

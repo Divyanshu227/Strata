@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { isRateLimited } from '@/lib/rate-limiter';
 import { publishMessageEvent } from '@/lib/kafka';
-import { sendDiscordNotification, sendTelegramNotification } from '@/lib/notifications';
+import { sendDiscordNotification, sendTelegramNotification, sendEmailNotification } from '@/lib/notifications';
 import { analyzeSpam } from '@/lib/trustGateClient';
 
 function getCorsHeaders() {
@@ -243,6 +243,17 @@ export async function POST(req: NextRequest) {
           spamClassification,
           spamScore: aiMetrics.spamScore,
         }, project.telegramToken, project.telegramChatId, project.name);
+      }
+      
+      if (project.emailEnabled && project.emailRecipient) {
+        await sendEmailNotification({
+          name: savedMessage.name,
+          email: savedMessage.email,
+          subject: savedMessage.subject,
+          message: savedMessage.message,
+          spamClassification,
+          spamScore: aiMetrics.spamScore,
+        }, project.emailRecipient, project.name);
       }
     }
 
