@@ -16,15 +16,25 @@ import {
   Send,
   CheckSquare,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  LogOut,
+  Plus
 } from 'lucide-react';
 import { 
   markMessageAsRead, 
   toggleMessageArchive, 
   deleteMessage,
-  updateProjectSettings
+  updateProjectSettings,
+  createNewProject
 } from './actions';
 import { getCachedMessages, setCachedMessages, CachedMessage } from '@/lib/indexed-db';
+
+interface UserData {
+  id: string;
+  name: string;
+  username: string;
+  email: string;
+}
 
 interface ProjectData {
   id: string;
@@ -37,6 +47,8 @@ interface ProjectData {
   telegramChatId: string | null;
   emailEnabled: boolean;
   emailRecipient: string | null;
+  platform?: string | null;
+  platformUrl?: string | null;
 }
 
 interface Message {
@@ -54,14 +66,17 @@ interface Message {
 }
 
 interface DashboardClientProps {
-  initialProject: ProjectData;
+  initialUser: UserData;
+  initialProjects: ProjectData[];
 }
 
 export default function DashboardClient({ 
-  initialProject
+  initialUser,
+  initialProjects
 }: DashboardClientProps) {
   // Client state
-  const [project, setProject] = useState<ProjectData>(initialProject);
+  const [projects, setProjects] = useState<ProjectData[]>(initialProjects);
+  const [project, setProject] = useState<ProjectData>(initialProjects[0]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -72,6 +87,13 @@ export default function DashboardClient({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   
+  // Create project form state
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectPlatform, setNewProjectPlatform] = useState('');
+  const [newProjectUrl, setNewProjectUrl] = useState('');
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
+
   // Dynamic sync & connection states
   const [isOffline, setIsOffline] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -100,6 +122,37 @@ export default function DashboardClient({
     setEmailEnabled(project.emailEnabled);
     setEmailRecipient(project.emailRecipient || '');
   }, [project]);
+
+  const handleCreateProject = async () => {
+    if (!newProjectName.trim() || !newProjectPlatform.trim()) {
+      triggerToast('Project name and platform type are required.');
+      return;
+    }
+    setIsCreatingProject(true);
+    try {
+      const res = await createNewProject({
+        name: newProjectName,
+        platform: newProjectPlatform,
+        platformUrl: newProjectUrl
+      });
+      if (res.success && res.project) {
+        const typedProj = res.project as ProjectData;
+        setProjects(prev => [...prev, typedProj]);
+        setProject(typedProj);
+        setIsCreateModalOpen(false);
+        setNewProjectName('');
+        setNewProjectPlatform('');
+        setNewProjectUrl('');
+        triggerToast('Workspace project created successfully!');
+      } else {
+        triggerToast('Failed to create project: ' + res.error);
+      }
+    } catch (err: any) {
+      triggerToast('Error: ' + err.message);
+    } finally {
+      setIsCreatingProject(false);
+    }
+  };
 
   const handleSaveSettings = async () => {
     setIsSavingSettings(true);
@@ -165,22 +218,16 @@ export default function DashboardClient({
     }
   };
 
-  // Initial Load: Instantly load from IndexedDB cache, then pull fresh server data
+  // Initial Load: sync when project selection changes
   useEffect(() => {
     const loadInitialData = async () => {
-      console.log('[DashboardClient] Mounting component. Checking IndexedDB cache...');
-      const cached = await getCachedMessages();
-      
-      if (cached && cached.length > 0) {
-        console.log(`[DashboardClient] Loaded ${cached.length} messages from IndexedDB.`);
-        setMessages(cached as Message[]);
-      }
-      
-      // Pull fresh data in the background
+      setSelectedMessageId(null);
+      setMessages([]); // clear current project messages to show shimmer skeletons
+      console.log(`[DashboardClient] Project changed to ${project.name}. Syncing fresh data...`);
       await fetchLatestMessages();
     };
     loadInitialData();
-  }, []);
+  }, [project.id]);
 
   const selectedMessage = messages.find(m => m.id === selectedMessageId);
 
@@ -389,6 +436,81 @@ async function sendContactMessage(name, email, subject, message) {
           </button>
         </div>
 
+        {/* Project Selector Workspace */}
+        {!isSidebarCollapsed ? (
+          <div style={{ padding: '0 16px', marginBottom: '16px', marginTop: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Project Workspace</span>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <select
+                value={project.id}
+                onChange={(e) => {
+                  const selected = projects.find(p => p.id === e.target.value);
+                  if (selected) setProject(selected);
+                }}
+                style={{
+                  flex: 1,
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  padding: '8px 10px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  outline: 'none',
+                  minWidth: 0
+                }}
+              >
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  padding: '8px 10px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}
+                title="Create New Project"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px', marginTop: '12px' }}>
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              style={{
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-primary)',
+                padding: '8px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title="Create New Project"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
+        )}
+
         <nav className="sidebarMenu">
           <button 
             className={`menuItem ${activeView === 'inbox' ? 'menuItemActive' : ''}`}
@@ -416,25 +538,50 @@ async function sendContactMessage(name, email, subject, message) {
           </button>
         </nav>
 
-        <div className="sidebarFooter">
-          <div className="apiTokenCard">
-            <span className="apiTokenTitle">
-              <Key size={14} />
-              <span>API Authorization Token</span>
-            </span>
-            <span className="apiTokenValue">
-              <span style={{ fontSize: '11px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '170px' }}>
-                {project.apiKey}
+        <div className="sidebarFooter" style={{
+          padding: '16px',
+          borderTop: '1px solid var(--border-color)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: isSidebarCollapsed ? 'center' : 'space-between',
+          gap: '12px',
+          minWidth: 0
+        }}>
+          {!isSidebarCollapsed ? (
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+              <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                {initialUser.name}
               </span>
-              <button 
-                onClick={() => copyToClipboard(project.apiKey, true)}
-                style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                title="Copy Token"
-              >
-                {copiedToken ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
-              </button>
-            </span>
-          </div>
+              <span style={{ fontSize: '10px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                {initialUser.email}
+              </span>
+            </div>
+          ) : null}
+          <button
+            onClick={async () => {
+              const { logoutUser } = await import('./actions');
+              await logoutUser();
+              window.location.reload();
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '6px',
+              borderRadius: '6px',
+              transition: 'all 0.2s',
+              flexShrink: 0
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--danger)'}
+            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
+            title="Log Out"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </aside>
 
@@ -951,6 +1098,93 @@ async function sendContactMessage(name, email, subject, message) {
             </div>
           </div>
         </section>
+      )}
+      {isCreateModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'var(--bg-glass)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '16px',
+            padding: '32px',
+            width: '100%',
+            maxWidth: '440px',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.4)'
+          }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '700', marginBottom: '8px', color: 'var(--text-primary)' }}>Create New Project Workspace</h3>
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
+              Register a new platform to start routing its message submissions.
+            </p>
+
+            <div className="configField" style={{ marginBottom: '16px' }}>
+              <label className="configLabel">Project Name</label>
+              <input
+                type="text"
+                placeholder="e.g. My SaaS"
+                className="configInput"
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+              />
+            </div>
+
+            <div className="configField" style={{ marginBottom: '16px' }}>
+              <label className="configLabel">Platform Type</label>
+              <input
+                type="text"
+                placeholder="e.g. Portfolio Website"
+                className="configInput"
+                value={newProjectPlatform}
+                onChange={(e) => setNewProjectPlatform(e.target.value)}
+              />
+            </div>
+
+            <div className="configField" style={{ marginBottom: '24px' }}>
+              <label className="configLabel">Platform Origin URL</label>
+              <input
+                type="text"
+                placeholder="e.g. https://mysite.com"
+                className="configInput"
+                value={newProjectUrl}
+                onChange={(e) => setNewProjectUrl(e.target.value)}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreateModalOpen(false);
+                  setNewProjectName('');
+                  setNewProjectPlatform('');
+                  setNewProjectUrl('');
+                }}
+                className="actionButton"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateProject}
+                disabled={isCreatingProject}
+                className="actionButton actionButtonAccent"
+              >
+                {isCreatingProject ? 'Creating...' : 'Create Project'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
