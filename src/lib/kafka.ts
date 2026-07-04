@@ -37,6 +37,7 @@ function getKafkaProducer() {
  */
 export async function publishMessageEvent(message: {
   id: string;
+  projectId: string;
   name: string;
   email: string;
   subject: string | null;
@@ -50,7 +51,7 @@ export async function publishMessageEvent(message: {
   }
 
   try {
-    const topic = 'portfolio-messages';
+    const topic = 'strata-messages';
     
     await prod.send({
       topic,

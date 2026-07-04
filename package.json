@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "node scripts/seed-mock.js",
-    "consumer": "node scripts/kafka-consumer.js"
+    "consumer": "node scripts/strata-workers.js"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.8.0",

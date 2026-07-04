@@ -1,15 +1,14 @@
 import DashboardClient from './DashboardClient';
+import { getOrCreateDefaultProject } from './actions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Page() {
-  const apiToken = process.env.API_TOKEN || 'NOT_CONFIGURED';
-  const discordConfigured = !!process.env.DISCORD_WEBHOOK_URL;
+  const project = await getOrCreateDefaultProject();
 
   return (
     <DashboardClient
-      apiToken={apiToken}
-      discordConfigured={discordConfigured}
+      initialProject={project}
     />
   );
 }

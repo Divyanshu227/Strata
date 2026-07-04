@@ -5,8 +5,12 @@ interface MessagePayload {
   message: string;
 }
 
-export async function sendDiscordNotification(payload: MessagePayload) {
-  const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
+export async function sendDiscordNotification(
+  payload: MessagePayload, 
+  customWebhookUrl?: string | null,
+  projectName?: string
+) {
+  const webhookUrl = customWebhookUrl || process.env.DISCORD_WEBHOOK_URL;
   if (!webhookUrl) {
     console.log('Discord webhook URL not configured, skipping notification.');
     return;
@@ -40,7 +44,7 @@ export async function sendDiscordNotification(payload: MessagePayload) {
       ],
       timestamp: new Date().toISOString(),
       footer: {
-        text: 'Strata Portfolio Notifier',
+        text: `Strata Portfolio Notifier${projectName ? ` | Project: ${projectName}` : ''}`,
       },
     };
 

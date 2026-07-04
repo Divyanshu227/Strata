@@ -21,30 +21,47 @@ import {
 import { 
   markMessageAsRead, 
   toggleMessageArchive, 
-  deleteMessage
+  deleteMessage,
+  updateProjectSettings
 } from './actions';
 import { getCachedMessages, setCachedMessages, CachedMessage } from '@/lib/indexed-db';
 
+interface ProjectData {
+  id: string;
+  name: string;
+  apiKey: string;
+  discordEnabled: boolean;
+  discordWebhook: string | null;
+  telegramEnabled: boolean;
+  telegramToken: string | null;
+  telegramChatId: string | null;
+  emailEnabled: boolean;
+  emailRecipient: string | null;
+}
+
 interface Message {
   id: string;
+  projectId: string;
   name: string;
   email: string;
   subject: string | null;
   message: string;
   status: string;
   createdAt: string | Date;
+  spamScore?: number | null;
+  priority?: string | null;
+  sentiment?: string | null;
 }
 
 interface DashboardClientProps {
-  apiToken: string;
-  discordConfigured: boolean;
+  initialProject: ProjectData;
 }
 
 export default function DashboardClient({ 
-  apiToken, 
-  discordConfigured
+  initialProject
 }: DashboardClientProps) {
   // Client state
+  const [project, setProject] = useState<ProjectData>(initialProject);
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,6 +78,52 @@ export default function DashboardClient({
   
   const [isPending, startTransition] = useTransition();
 
+  // Form states for project settings
+  const [discordEnabled, setDiscordEnabled] = useState(project.discordEnabled);
+  const [discordWebhook, setDiscordWebhook] = useState(project.discordWebhook || '');
+  
+  const [telegramEnabled, setTelegramEnabled] = useState(project.telegramEnabled);
+  const [telegramToken, setTelegramToken] = useState(project.telegramToken || '');
+  const [telegramChatId, setTelegramChatId] = useState(project.telegramChatId || '');
+  
+  const [emailEnabled, setEmailEnabled] = useState(project.emailEnabled);
+  const [emailRecipient, setEmailRecipient] = useState(project.emailRecipient || '');
+
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  useEffect(() => {
+    setDiscordEnabled(project.discordEnabled);
+    setDiscordWebhook(project.discordWebhook || '');
+    setTelegramEnabled(project.telegramEnabled);
+    setTelegramToken(project.telegramToken || '');
+    setTelegramChatId(project.telegramChatId || '');
+    setEmailEnabled(project.emailEnabled);
+    setEmailRecipient(project.emailRecipient || '');
+  }, [project]);
+
+  const handleSaveSettings = async () => {
+    setIsSavingSettings(true);
+    triggerToast('Saving settings to Supabase...');
+    try {
+      const updated = await updateProjectSettings(project.id, {
+        discordEnabled,
+        discordWebhook: discordWebhook.trim() || null,
+        telegramEnabled,
+        telegramToken: telegramToken.trim() || null,
+        telegramChatId: telegramChatId.trim() || null,
+        emailEnabled,
+        emailRecipient: emailRecipient.trim() || null,
+      });
+      setProject(updated);
+      triggerToast('Settings saved successfully!');
+    } catch (err: any) {
+      console.error(err);
+      triggerToast('Failed to save settings: ' + err.message);
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
   /**
    * Helper to fetch latest messages from Next.js GET API route
    * and update browser IndexedDB cache.
@@ -71,7 +134,7 @@ export default function DashboardClient({
       console.log('[DashboardClient] Fetching latest messages from API...');
       const response = await fetch('/api/messages', {
         headers: {
-          'Authorization': `Bearer ${apiToken}`
+          'Authorization': `Bearer ${project.apiKey}`
         }
       });
       
@@ -83,6 +146,9 @@ export default function DashboardClient({
       if (data.success && Array.isArray(data.messages)) {
         console.log(`[DashboardClient] Successfully loaded ${data.messages.length} messages from server.`);
         setMessages(data.messages);
+        if (data.project) {
+          setProject(data.project);
+        }
         
         // Write to IndexedDB local cache
         await setCachedMessages(data.messages);
@@ -258,14 +324,16 @@ export default function DashboardClient({
   const integrationSnippet = `// API call from your Portfolio Website (HTML/JS)
 async function sendContactMessage(name, email, subject, message) {
   const endpoint = '${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/api/messages';
-  const apiToken = '${apiToken}';
+  const projectId = '${project.id}';
+  const apiKey = '${project.apiKey}';
 
   try {
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + apiToken
+        'x-project-id': projectId,
+        'Authorization': 'Bearer ' + apiKey
       },
       body: JSON.stringify({ name, email, subject, message })
     });
@@ -356,17 +424,15 @@ async function sendContactMessage(name, email, subject, message) {
             </span>
             <span className="apiTokenValue">
               <span style={{ fontSize: '11px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '170px' }}>
-                {apiToken === 'NOT_CONFIGURED' ? 'Configure in .env.local' : apiToken}
+                {project.apiKey}
               </span>
-              {apiToken !== 'NOT_CONFIGURED' && (
-                <button 
-                  onClick={() => copyToClipboard(apiToken, true)}
-                  style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                  title="Copy Token"
-                >
-                  {copiedToken ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
-                </button>
-              )}
+              <button 
+                onClick={() => copyToClipboard(project.apiKey, true)}
+                style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                title="Copy Token"
+              >
+                {copiedToken ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
+              </button>
             </span>
           </div>
         </div>
@@ -522,7 +588,52 @@ async function sendContactMessage(name, email, subject, message) {
                     {msg.subject && (
                       <h4 className="cardSubject">{msg.subject}</h4>
                     )}
-                    <p className="cardPreview">{msg.message}</p>
+                    <p className="cardPreview" style={{ marginBottom: '6px' }}>{msg.message}</p>
+                    
+                    {/* Optional AI Badges */}
+                    {(msg.priority || msg.sentiment || (msg.spamScore !== undefined && msg.spamScore !== null)) && (
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                        {msg.priority && (
+                          <span style={{
+                            fontSize: '9px',
+                            fontWeight: '700',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            background: msg.priority === 'high' ? 'var(--danger-glow)' : msg.priority === 'medium' ? 'rgba(245, 158, 11, 0.1)' : 'var(--bg-tertiary)',
+                            color: msg.priority === 'high' ? 'var(--danger)' : msg.priority === 'medium' ? 'var(--warning)' : 'var(--text-secondary)',
+                            border: `1px solid ${msg.priority === 'high' ? 'rgba(239, 68, 68, 0.2)' : msg.priority === 'medium' ? 'rgba(245, 158, 11, 0.2)' : 'var(--border-color)'}`
+                          }}>
+                            {msg.priority.toUpperCase()}
+                          </span>
+                        )}
+                        {msg.sentiment && (
+                          <span style={{
+                            fontSize: '9px',
+                            fontWeight: '700',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            background: msg.sentiment === 'positive' ? 'var(--success-glow)' : msg.sentiment === 'negative' ? 'var(--danger-glow)' : 'var(--bg-tertiary)',
+                            color: msg.sentiment === 'positive' ? 'var(--success)' : msg.sentiment === 'negative' ? 'var(--danger)' : 'var(--text-secondary)',
+                            border: `1px solid ${msg.sentiment === 'positive' ? 'rgba(16, 185, 129, 0.2)' : msg.sentiment === 'negative' ? 'rgba(239, 68, 68, 0.2)' : 'var(--border-color)'}`
+                          }}>
+                            {msg.sentiment === 'positive' ? '😊 POSITIVE' : msg.sentiment === 'negative' ? '😠 NEGATIVE' : '😐 NEUTRAL'}
+                          </span>
+                        )}
+                        {msg.spamScore !== undefined && msg.spamScore !== null && msg.spamScore > 0.5 && (
+                          <span style={{
+                            fontSize: '9px',
+                            fontWeight: '700',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            color: 'var(--danger)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)'
+                          }}>
+                            🚨 SPAM: {Math.round(msg.spamScore * 100)}%
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -546,6 +657,57 @@ async function sendContactMessage(name, email, subject, message) {
                     <span className="detailsTime" suppressHydrationWarning>
                       Received on {new Date(selectedMessage.createdAt).toLocaleString()}
                     </span>
+
+                    {/* Optional AI Telemetry Metadata */}
+                    {((selectedMessage.spamScore !== undefined && selectedMessage.spamScore !== null) || selectedMessage.priority || selectedMessage.sentiment) && (
+                      <div style={{
+                        display: 'flex',
+                        gap: '16px',
+                        marginTop: '12px',
+                        background: 'var(--bg-glass-hover)',
+                        border: '1px solid var(--border-color)',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        width: 'fit-content'
+                      }}>
+                        {selectedMessage.priority && (
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Priority</span>
+                            <span style={{
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              color: selectedMessage.priority === 'high' ? 'var(--danger)' : selectedMessage.priority === 'medium' ? 'var(--warning)' : 'var(--text-secondary)'
+                            }}>
+                              {selectedMessage.priority.toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                        {selectedMessage.sentiment && (
+                          <div style={{ display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--border-color)', paddingLeft: '16px' }}>
+                            <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sentiment</span>
+                            <span style={{
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              color: selectedMessage.sentiment === 'positive' ? 'var(--success)' : selectedMessage.sentiment === 'negative' ? 'var(--danger)' : 'var(--text-secondary)'
+                            }}>
+                              {selectedMessage.sentiment === 'positive' ? '😊 Positive' : selectedMessage.sentiment === 'negative' ? '😠 Negative' : '😐 Neutral'}
+                            </span>
+                          </div>
+                        )}
+                        {selectedMessage.spamScore !== undefined && selectedMessage.spamScore !== null && (
+                          <div style={{ display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--border-color)', paddingLeft: '16px' }}>
+                            <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Spam Score</span>
+                            <span style={{
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              color: selectedMessage.spamScore > 0.5 ? 'var(--danger)' : 'var(--success)'
+                            }}>
+                              {Math.round(selectedMessage.spamScore * 100)}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="detailsActions">
@@ -627,9 +789,9 @@ async function sendContactMessage(name, email, subject, message) {
               </div>
               <div className="statText">
                 <span className="statValue">
-                  {discordConfigured ? 'Active' : 'Inactive'}
+                  {[project.discordEnabled, project.telegramEnabled, project.emailEnabled].filter(Boolean).length} / 3
                 </span>
-                <span className="statLabel">Discord Webhook</span>
+                <span className="statLabel">Active Channels</span>
               </div>
             </div>
           </div>
@@ -658,38 +820,134 @@ async function sendContactMessage(name, email, subject, message) {
 
           <div className="settingsSection">
             <h3 className="sectionTitle">
-              <AlertCircle size={18} style={{ color: 'var(--warning)' }} />
-              <span>Step 2: Environment Variables configuration</span>
+              <Settings size={18} style={{ color: 'var(--accent-light)' }} />
+              <span>Step 2: Configure Notification Routing Channels</span>
             </h3>
             <p className="sectionDesc">
-              Configure your project parameters inside your local environment configuration file: [ .env.local ]
+              Enable channels and enter credentials to route incoming submissions dynamically.
             </p>
 
-            <div className="configField">
-              <label className="configLabel">API Token (Authorization Header)</label>
-              <input 
-                type="text" 
-                readOnly 
-                className="configInput" 
-                value={`API_TOKEN="${apiToken}"`} 
-              />
+            {/* A. Discord Routing Channel */}
+            <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '20px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: '600' }}>Discord Webhook Alerts</span>
+                </div>
+                <label className="switch" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={discordEnabled}
+                    onChange={(e) => setDiscordEnabled(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    {discordEnabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                </label>
+              </div>
+              
+              {discordEnabled && (
+                <div className="configField">
+                  <label className="configLabel">Webhook URL</label>
+                  <input 
+                    type="text" 
+                    placeholder="https://discord.com/api/webhooks/..." 
+                    className="configInput" 
+                    value={discordWebhook}
+                    onChange={(e) => setDiscordWebhook(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
 
-            <div className="configField">
-              <label className="configLabel">Discord Webhook Notification URL</label>
-              <input 
-                type="text" 
-                placeholder='DISCORD_WEBHOOK_URL="https://discord.com/api/webhooks/..."' 
-                className="configInput" 
-                readOnly
-                value={discordConfigured ? 'DISCORD_WEBHOOK_URL="[CONFIGURED_IN_ENV]"' : 'DISCORD_WEBHOOK_URL=""'}
-              />
-              <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', display: 'block' }}>
-                {discordConfigured 
-                  ? '✅ Active: You will receive instant notifications in your Discord channel whenever someone submits a message.'
-                  : '⚠️ Inactive: Set the DISCORD_WEBHOOK_URL inside .env.local to enable real-time notifications.'
-                }
-              </span>
+            {/* B. Telegram Routing Channel */}
+            <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '20px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: '600' }}>Telegram Bot Alerts</span>
+                </div>
+                <label className="switch" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={telegramEnabled}
+                    onChange={(e) => setTelegramEnabled(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    {telegramEnabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                </label>
+              </div>
+              
+              {telegramEnabled && (
+                <div className="gridTwoCol">
+                  <div className="configField">
+                    <label className="configLabel">Bot API Token</label>
+                    <input 
+                      type="password" 
+                      placeholder="123456789:ABCdefGhIJKlmNoPQRsT..." 
+                      className="configInput" 
+                      value={telegramToken}
+                      onChange={(e) => setTelegramToken(e.target.value)}
+                    />
+                  </div>
+                  <div className="configField">
+                    <label className="configLabel">Chat Target ID</label>
+                    <input 
+                      type="text" 
+                      placeholder="-100123456789" 
+                      className="configInput" 
+                      value={telegramChatId}
+                      onChange={(e) => setTelegramChatId(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* C. Email Routing Channel */}
+            <div style={{ paddingBottom: '20px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '14px', fontWeight: '600' }}>Email SMTP Alerts</span>
+                </div>
+                <label className="switch" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={emailEnabled}
+                    onChange={(e) => setEmailEnabled(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                    {emailEnabled ? 'Enabled' : 'Disabled'}
+                  </span>
+                </label>
+              </div>
+              
+              {emailEnabled && (
+                <div className="configField">
+                  <label className="configLabel">Recipient Email Address</label>
+                  <input 
+                    type="email" 
+                    placeholder="my-alerts@domain.com" 
+                    className="configInput" 
+                    value={emailRecipient}
+                    onChange={(e) => setEmailRecipient(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Save Buttons */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
+              <button 
+                onClick={handleSaveSettings}
+                disabled={isSavingSettings}
+                className="actionButton actionButtonAccent"
+                style={{ minWidth: '140px' }}
+              >
+                {isSavingSettings ? 'Saving...' : 'Save Settings'}
+              </button>
             </div>
           </div>
         </section>
