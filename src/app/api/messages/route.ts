@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { isRateLimited } from '@/lib/rate-limiter';
 import { publishMessageEvent } from '@/lib/kafka';
-import { sendDiscordNotification } from '@/lib/notifications';
+import { sendDiscordNotification, sendTelegramNotification } from '@/lib/notifications';
 import { analyzeSpam } from '@/lib/trustGateClient';
 
 function getCorsHeaders() {
@@ -219,9 +219,10 @@ export async function POST(req: NextRequest) {
       spamScore: aiMetrics.spamScore,
     });
 
-    // Fail-open: Direct webhook dispatch fallback if Kafka is down and Discord is enabled
+    // Fail-open: Direct webhook dispatch fallback if Kafka is down
     if (!published) {
       console.log('[API POST] Kafka event stream is offline. Checking fallback direct channel dispatch...');
+      
       if (project.discordEnabled && project.discordWebhook) {
         await sendDiscordNotification({
           name: savedMessage.name,
@@ -231,6 +232,17 @@ export async function POST(req: NextRequest) {
           spamClassification,
           spamScore: aiMetrics.spamScore,
         }, project.discordWebhook, project.name);
+      }
+      
+      if (project.telegramEnabled && project.telegramToken && project.telegramChatId) {
+        await sendTelegramNotification({
+          name: savedMessage.name,
+          email: savedMessage.email,
+          subject: savedMessage.subject,
+          message: savedMessage.message,
+          spamClassification,
+          spamScore: aiMetrics.spamScore,
+        }, project.telegramToken, project.telegramChatId, project.name);
       }
     }
 

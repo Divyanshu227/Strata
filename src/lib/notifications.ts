@@ -78,3 +78,41 @@ export async function sendDiscordNotification(
     console.error('Failed to send Discord notification:', error);
   }
 }
+
+export async function sendTelegramNotification(
+  payload: MessagePayload,
+  telegramToken: string,
+  telegramChatId: string,
+  projectName?: string
+) {
+  try {
+    const endpoint = `https://api.telegram.org/bot${telegramToken}/sendMessage`;
+    let spamStr = '';
+    
+    if (payload.spamClassification) {
+      const scoreStr = payload.spamScore != null ? `\n*Score*: ${Math.round(payload.spamScore * 100)}%` : '';
+      spamStr = `\n\n*🛡️ Spam Analysis*\n${payload.spamClassification === 'Spam' ? '🔴 Spam' : payload.spamClassification === 'Suspicious' ? '🟡 Suspicious' : '🟢 Safe'}${scoreStr}`;
+    }
+
+    const text = `📬 *New Message (Strata)*\n\n*Project*: ${projectName || 'Unknown'}\n*Sender*: ${payload.name}\n*Email*: ${payload.email}\n*Subject*: ${payload.subject || 'N/A'}\n\n*Message*:\n${payload.message}${spamStr}`;
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: telegramChatId,
+        text: text,
+        parse_mode: 'Markdown'
+      })
+    });
+
+    if (!response.ok) {
+      const errBody = await response.text();
+      console.error(`Telegram API error status ${response.status}: ${errBody}`);
+    } else {
+      console.log('Telegram notification sent successfully.');
+    }
+  } catch (error) {
+    console.error('Failed to send telegram notification:', error);
+  }
+}
