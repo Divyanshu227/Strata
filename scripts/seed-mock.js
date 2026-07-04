@@ -22,13 +22,33 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log('Seeding mock projects and messages into Supabase PostgreSQL using Prisma with Driver Adapter...');
   
-  // Clear existing messages and projects (cascade delete will clear messages when project is deleted)
+  // Clear existing messages, projects, and users
+  await prisma.message.deleteMany({});
   await prisma.project.deleteMany({});
+  await prisma.user.deleteMany({});
+  
+  // Create default owner user
+  const crypto = require('crypto');
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync('12345678', salt, 1000, 64, 'sha512').toString('hex');
+  const hashedPassword = `${salt}:${hash}`;
+
+  const user = await prisma.user.create({
+    data: {
+      id: 'default-owner-uuid',
+      name: 'Strata Administrator',
+      username: 'admin',
+      email: 'admin@strata-app.com',
+      password: hashedPassword
+    }
+  });
+  console.log(`Created default user: ${user.name} (username: ${user.username})`);
   
   // Create default project
   const project = await prisma.project.create({
     data: {
       id: 'default-project-uuid',
+      ownerId: user.id,
       name: 'My Portfolio',
       apiKey: 'strata_token_default_123',
       discordEnabled: !!process.env.DISCORD_WEBHOOK_URL,

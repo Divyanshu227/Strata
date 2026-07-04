@@ -3,14 +3,10 @@ const path = require('path');
 // Load env configurations from .env.local
 require('dotenv').config({ path: path.join(__dirname, '../.env.local') });
 
-const token = process.env.API_TOKEN;
+const projectId = process.env.PROJECT_ID || 'default-project-uuid';
+const token = process.env.API_KEY || 'strata_token_default_123';
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 const endpoint = `${appUrl}/api/messages`;
-
-if (!token || token === 'NOT_CONFIGURED') {
-  console.error('❌ Error: API_TOKEN is not configured in .env.local. Make sure you set it first.');
-  process.exit(1);
-}
 
 const mockMessage = {
   name: 'John Connor',
@@ -21,6 +17,7 @@ const mockMessage = {
 
 async function testRequest() {
   console.log(`Sending API request to: ${endpoint}`);
+  console.log(`Using Project ID: ${projectId}`);
   console.log(`Using Bearer Token: ${token}`);
   console.log(`Payload:`, mockMessage);
 
@@ -29,6 +26,7 @@ async function testRequest() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-project-id': projectId,
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify(mockMessage)
