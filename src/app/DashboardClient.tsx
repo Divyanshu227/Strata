@@ -121,7 +121,7 @@ export default function DashboardClient({
     setTelegramChatId(project.telegramChatId || '');
     setEmailEnabled(project.emailEnabled);
     setEmailRecipient(project.emailRecipient || '');
-  }, [project]);
+  }, [project.id]);
 
   const handleCreateProject = async () => {
     if (!newProjectName.trim() || !newProjectPlatform.trim()) {

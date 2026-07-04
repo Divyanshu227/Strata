@@ -43,6 +43,7 @@ export async function publishMessageEvent(message: {
   subject: string | null;
   message: string;
   createdAt: Date | string;
+  spamClassification?: string | null;
 }): Promise<boolean> {
   const prod = getKafkaProducer();
   if (!prod) {

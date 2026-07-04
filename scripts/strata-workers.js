@@ -123,6 +123,14 @@ async function handleDiscordNotification(project, payload) {
       },
     };
 
+    if (payload.spamClassification) {
+      embed.fields.push({
+        name: '🛡️ Spam Analysis',
+        value: payload.spamClassification === 'Spam' ? '🔴 Spam' : payload.spamClassification === 'Suspicious' ? '🟡 Suspicious' : '🟢 Safe',
+        inline: false,
+      });
+    }
+
     const response = await fetch(project.discordWebhook, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

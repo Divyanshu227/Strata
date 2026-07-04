@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { isRateLimited } from '@/lib/rate-limiter';
 import { publishMessageEvent } from '@/lib/kafka';
 import { sendDiscordNotification } from '@/lib/notifications';
+import { analyzeSpam } from '@/lib/trustGateClient';
 
 function getCorsHeaders() {
   return {
@@ -177,13 +178,17 @@ export async function POST(req: NextRequest) {
       priority: string | null;
       sentiment: string | null;
     } = { spamScore: null, priority: null, sentiment: null };
+    let spamClassification: string | null = null;
     try {
       const classification = classifyMessage(message, subject);
-      aiMetrics.spamScore = classification.spamScore;
       aiMetrics.priority = classification.priority;
       aiMetrics.sentiment = classification.sentiment;
+
+      const tgResult = await analyzeSpam(message);
+      aiMetrics.spamScore = tgResult.threatScore / 10;
+      spamClassification = tgResult.classification;
     } catch (aiErr) {
-      console.warn('[API POST] Mock AI classification failed, continuing with empty metrics:', aiErr);
+      console.warn('[API POST] Mock AI / TrustGate classification failed, continuing with empty metrics:', aiErr);
     }
 
     // 5. Save directly to Supabase Postgres (Prisma)
@@ -210,6 +215,7 @@ export async function POST(req: NextRequest) {
       subject: savedMessage.subject,
       message: savedMessage.message,
       createdAt: savedMessage.createdAt,
+      spamClassification,
     });
 
     // Fail-open: Direct webhook dispatch fallback if Kafka is down and Discord is enabled
@@ -221,6 +227,7 @@ export async function POST(req: NextRequest) {
           email: savedMessage.email,
           subject: savedMessage.subject,
           message: savedMessage.message,
+          spamClassification,
         }, project.discordWebhook, project.name);
       }
     }

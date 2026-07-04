@@ -3,6 +3,7 @@ interface MessagePayload {
   email: string;
   subject?: string | null;
   message: string;
+  spamClassification?: string | null;
 }
 
 export async function sendDiscordNotification(
@@ -41,12 +42,20 @@ export async function sendDiscordNotification(
           value: payload.message || '*Empty message*',
           inline: false,
         },
-      ],
+      ] as any[],
       timestamp: new Date().toISOString(),
       footer: {
         text: `Strata Portfolio Notifier${projectName ? ` | Project: ${projectName}` : ''}`,
       },
     };
+
+    if (payload.spamClassification) {
+      embed.fields.push({
+        name: '🛡️ Spam Analysis',
+        value: payload.spamClassification === 'Spam' ? '🔴 Spam' : payload.spamClassification === 'Suspicious' ? '🟡 Suspicious' : '🟢 Safe',
+        inline: false,
+      });
+    }
 
     const response = await fetch(webhookUrl, {
       method: 'POST',
