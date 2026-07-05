@@ -18,7 +18,12 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Plus
+  Plus,
+  Terminal,
+  Bot,
+  Code,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { 
   markMessageAsRead, 
@@ -82,8 +87,8 @@ export default function DashboardClient({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'archived'>('all');
   const [activeView, setActiveView] = useState<'inbox' | 'settings'>('inbox');
-  const [copiedToken, setCopiedToken] = useState(false);
-  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedStates, setCopiedStates] = useState<Record<string, boolean>>({});
+  const [showApiKey, setShowApiKey] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   
@@ -337,15 +342,10 @@ export default function DashboardClient({
   };
 
   // Utility to copy strings
-  const copyToClipboard = (text: string, isToken: boolean) => {
+  const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
-    if (isToken) {
-      setCopiedToken(true);
-      setTimeout(() => setCopiedToken(false), 2000);
-    } else {
-      setCopiedCode(true);
-      setTimeout(() => setCopiedCode(false), 2000);
-    }
+    setCopiedStates(prev => ({ ...prev, [id]: true }));
+    setTimeout(() => setCopiedStates(prev => ({ ...prev, [id]: false })), 2000);
     triggerToast('Copied to clipboard!');
   };
 
@@ -381,37 +381,42 @@ export default function DashboardClient({
   const archivedCount = messages.filter(m => m.status === 'archived').length;
   const totalInbox = messages.filter(m => m.status !== 'archived').length;
 
+  const endpointUrl = `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/api/messages`;
+  
   // Code integration snippet for user's portfolio site
-  const integrationSnippet = `// API call from your Portfolio Website (HTML/JS)
+  const integrationSnippet = `// API call using Fetch
 async function sendContactMessage(name, email, subject, message) {
-  const endpoint = '${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/api/messages';
-  const projectId = '${project.id}';
-  const apiKey = '${project.apiKey}';
-
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-project-id': projectId,
-        'Authorization': 'Bearer ' + apiKey
-      },
-      body: JSON.stringify({ name, email, subject, message })
-    });
-
-    const result = await response.json();
-    if (response.ok) {
-      console.log('Message sent successfully:', result);
-      return { success: true };
-    } else {
-      console.error('Error sending message:', result.error);
-      return { success: false, error: result.error };
-    }
-  } catch (error) {
-    console.error('Network error:', error);
-    return { success: false, error: 'Network error occurred' };
-  }
+  const response = await fetch('${endpointUrl}', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-project-id': '${project.id}',
+      'Authorization': 'Bearer ${project.apiKey}'
+    },
+    body: JSON.stringify({ name, email, subject, message })
+  });
+  return response.json();
 }`;
+
+  const curlSnippet = `curl -X POST ${endpointUrl} \\
+  -H "Content-Type: application/json" \\
+  -H "x-project-id: ${project.id}" \\
+  -H "Authorization: Bearer ${project.apiKey}" \\
+  -d '{"name":"John","email":"john@test.com","subject":"Hello","message":"Hi there"}'`;
+
+  const jsonInput = `{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "subject": "Hello",
+  "message": "I'd like to work with you."
+}`;
+
+  const jsonOutput = `{
+  "success": true,
+  "message": "Message sent successfully"
+}`;
+
+  const aiPrompt = `I am building a website and I want to use Strata as my contact form backend. Create a beautiful React contact form that sends a POST request to ${endpointUrl}. It must include the headers 'x-project-id: ${project.id}' and 'Authorization: Bearer ${project.apiKey}'. The JSON payload should include 'name', 'email', 'subject', and 'message'. Handle loading states and success/error messages.`;
 
   return (
     <div className="appContainer">
@@ -959,24 +964,121 @@ async function sendContactMessage(name, email, subject, message) {
 
           <div className="settingsSection">
             <h3 className="sectionTitle">
-              <Sparkles size={18} style={{ color: 'var(--accent-light)' }} />
-              <span>Step 1: Connect your Portfolio Website</span>
+              <Key size={18} style={{ color: 'var(--accent-light)' }} />
+              <span>Credentials</span>
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
+              
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-tertiary)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>API Endpoint</span>
+                  <span style={{ fontSize: '13px', fontFamily: 'monospace', color: 'var(--text-primary)' }}>{endpointUrl}</span>
+                </div>
+                <button onClick={() => copyToClipboard(endpointUrl, 'url')} className="actionButton" style={{ padding: '6px' }}>
+                  {copiedStates['url'] ? <Check size={16} style={{ color: 'var(--success)' }} /> : <Copy size={16} />}
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-tertiary)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>Project ID</span>
+                  <span style={{ fontSize: '13px', fontFamily: 'monospace', color: 'var(--text-primary)' }}>{project.id}</span>
+                </div>
+                <button onClick={() => copyToClipboard(project.id, 'projectId')} className="actionButton" style={{ padding: '6px' }}>
+                  {copiedStates['projectId'] ? <Check size={16} style={{ color: 'var(--success)' }} /> : <Copy size={16} />}
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-tertiary)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>API Key (Bearer Token)</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '13px', fontFamily: 'monospace', color: 'var(--text-primary)' }}>
+                      {showApiKey ? project.apiKey : '•'.repeat(Math.min(project.apiKey.length, 32))}
+                    </span>
+                    <button onClick={() => setShowApiKey(!showApiKey)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+                      {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                  </div>
+                </div>
+                <button onClick={() => copyToClipboard(project.apiKey, 'apiKey')} className="actionButton" style={{ padding: '6px' }}>
+                  {copiedStates['apiKey'] ? <Check size={16} style={{ color: 'var(--success)' }} /> : <Copy size={16} />}
+                </button>
+              </div>
+
+            </div>
+          </div>
+
+          <div className="settingsSection">
+            <h3 className="sectionTitle">
+              <Bot size={18} style={{ color: 'var(--accent-light)' }} />
+              <span>AI Agent Prompt (Quick Start)</span>
             </h3>
             <p className="sectionDesc">
-              Send a JSON POST request to your Strata endpoint when a user submits your portfolio's contact form.
+              Building your site with AI? Just copy this prompt into Cursor, ChatGPT, or GitHub Copilot and it will instantly build a working React/Next.js contact form integrated with your Strata backend.
             </p>
-            
-            <div className="codeBlockHeader">
-              <span>portfolio-contact.js</span>
-              <button 
-                onClick={() => copyToClipboard(integrationSnippet, false)}
-                style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-              >
-                {copiedCode ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
-                <span>{copiedCode ? 'Copied' : 'Copy Code'}</span>
+            <div className="codeBlockHeader" style={{ background: 'var(--accent-light)', color: '#000' }}>
+              <span style={{ fontWeight: 600 }}>Prompt for AI Assistant</span>
+              <button onClick={() => copyToClipboard(aiPrompt, 'prompt')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                {copiedStates['prompt'] ? <Check size={14} /> : <Copy size={14} />}
+                <span>{copiedStates['prompt'] ? 'Copied' : 'Copy Prompt'}</span>
               </button>
             </div>
-            <pre className="codeBlock">{integrationSnippet}</pre>
+            <pre className="codeBlock" style={{ whiteSpace: 'pre-wrap', borderTopLeftRadius: 0, borderTopRightRadius: 0, borderTop: 'none' }}>{aiPrompt}</pre>
+          </div>
+
+          <div className="settingsSection">
+            <h3 className="sectionTitle">
+              <Code size={18} style={{ color: 'var(--accent-light)' }} />
+              <span>API Integration Guide</span>
+            </h3>
+            <p className="sectionDesc">
+              Send a JSON POST request to your Strata endpoint when a user submits your form.
+            </p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
+              <div>
+                <div className="codeBlockHeader">
+                  <span>Sample Request (Fetch)</span>
+                  <button onClick={() => copyToClipboard(integrationSnippet, 'fetch')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {copiedStates['fetch'] ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
+                  </button>
+                </div>
+                <pre className="codeBlock" style={{ fontSize: '11px' }}>{integrationSnippet}</pre>
+              </div>
+              
+              <div>
+                <div className="codeBlockHeader">
+                  <span>Sample Request (cURL)</span>
+                  <button onClick={() => copyToClipboard(curlSnippet, 'curl')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {copiedStates['curl'] ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
+                  </button>
+                </div>
+                <pre className="codeBlock" style={{ fontSize: '11px', whiteSpace: 'pre-wrap' }}>{curlSnippet}</pre>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
+              <div>
+                <div className="codeBlockHeader">
+                  <span>Expected Input (JSON)</span>
+                  <button onClick={() => copyToClipboard(jsonInput, 'input')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {copiedStates['input'] ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
+                  </button>
+                </div>
+                <pre className="codeBlock" style={{ fontSize: '11px' }}>{jsonInput}</pre>
+              </div>
+              
+              <div>
+                <div className="codeBlockHeader">
+                  <span>Success Output (JSON)</span>
+                  <button onClick={() => copyToClipboard(jsonOutput, 'output')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {copiedStates['output'] ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
+                  </button>
+                </div>
+                <pre className="codeBlock" style={{ fontSize: '11px' }}>{jsonOutput}</pre>
+              </div>
+            </div>
           </div>
 
           <div className="settingsSection">
