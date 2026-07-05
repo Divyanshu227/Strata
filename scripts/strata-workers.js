@@ -256,3 +256,14 @@ run().catch((err) => {
   console.error('❌ Fatal error running Strata parallel workers:', err.message);
   process.exit(1);
 });
+
+// Start a dummy HTTP server so Render/Railway doesn't crash the container,
+// and so you can use UptimeRobot to ping it every 10 minutes to keep it awake!
+const http = require('http');
+const PORT = process.env.PORT || 8080;
+http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('Strata Worker is ALIVE\n');
+}).listen(PORT, () => {
+  console.log(`🌐 Keep-alive HTTP server running on port ${PORT}`);
+});
