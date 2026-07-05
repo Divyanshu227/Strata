@@ -384,13 +384,17 @@ Please implement the API call, handling loading states, success messages, and er
           
           {emailEnabled && (
             <div className="configField">
-              <label className="configLabel">Recipient Email Address</label>
+              <label className="configLabel" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                Recipient Email Address
+                <span style={{ fontSize: '10px', background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-muted)' }}>Locked for Security</span>
+              </label>
               <input 
                 type="email" 
-                placeholder="my-alerts@domain.com" 
                 className="configInput" 
                 value={emailRecipient}
-                onChange={(e) => setEmailRecipient(e.target.value)}
+                disabled
+                style={{ opacity: 0.7, cursor: 'not-allowed', background: 'var(--bg-tertiary)' }}
+                title="Emails can only be routed to the registered account owner's email address to prevent open-relay abuse."
               />
             </div>
           )}

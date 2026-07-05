@@ -375,7 +375,7 @@ export async function updateProjectSettings(projectId: string, data: {
         telegramToken: data.telegramToken,
         telegramChatId: data.telegramChatId,
         emailEnabled: data.emailEnabled,
-        emailRecipient: data.emailRecipient,
+        emailRecipient: user.email, // SECURITY FIX: Lock to owner's email to prevent open relay abuse
       }
     });
     revalidatePath('/');
