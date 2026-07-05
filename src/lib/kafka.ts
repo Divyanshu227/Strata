@@ -8,12 +8,23 @@ let producer: ReturnType<Kafka['producer']> | null = null;
 function getKafkaProducer() {
   if (!kafka) {
     try {
-      kafka = new Kafka({
+      const kafkaConfig: any = {
         clientId: 'strata-app',
         brokers: brokers,
         connectionTimeout: 2000,
         requestTimeout: 2000
-      });
+      };
+
+      if (process.env.KAFKA_USERNAME && process.env.KAFKA_PASSWORD) {
+        kafkaConfig.ssl = { rejectUnauthorized: false };
+        kafkaConfig.sasl = {
+          mechanism: 'plain',
+          username: process.env.KAFKA_USERNAME,
+          password: process.env.KAFKA_PASSWORD
+        };
+      }
+
+      kafka = new Kafka(kafkaConfig);
 
       // Legacy partitioner keeps compatibility across client versions
       producer = kafka.producer({

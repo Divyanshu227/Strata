@@ -23,12 +23,23 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 // Kafka client setup
-const kafka = new Kafka({
+const kafkaConfig = {
   clientId: 'strata-workers',
   brokers: brokers,
   connectionTimeout: 3000,
   requestTimeout: 3000
-});
+};
+
+if (process.env.KAFKA_USERNAME && process.env.KAFKA_PASSWORD) {
+  kafkaConfig.ssl = true;
+  kafkaConfig.sasl = {
+    mechanism: 'plain',
+    username: process.env.KAFKA_USERNAME,
+    password: process.env.KAFKA_PASSWORD
+  };
+}
+
+const kafka = new Kafka(kafkaConfig);
 
 const consumer = kafka.consumer({ groupId: 'strata-workers-group' });
 
