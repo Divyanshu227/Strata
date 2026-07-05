@@ -319,6 +319,9 @@ export default function AuthForm() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
+                  <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                    <span style={{ color: 'var(--accent-light)', fontWeight: 600 }}>Note:</span> All email notifications will be securely locked to this address to prevent spam abuse.
+                  </div>
                 </div>
 
                 <div className="configField" style={{ marginBottom: '16px' }}>
