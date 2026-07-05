@@ -1,30 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useTransition } from 'react';
-import { 
-  Inbox, 
-  Archive, 
-  Trash2, 
-  Settings, 
-  Search, 
-  Mail, 
-  Key, 
-  Copy, 
-  Check, 
-  AlertCircle, 
-  Sparkles,
-  Send,
-  CheckSquare,
-  ChevronLeft,
-  ChevronRight,
-  LogOut,
-  Plus,
-  Terminal,
-  Bot,
-  Code,
-  Eye,
-  EyeOff
-} from 'lucide-react';
+import { Check } from 'lucide-react';
 import { 
   markMessageAsRead, 
   toggleMessageArchive, 
@@ -33,42 +10,13 @@ import {
   createNewProject
 } from './actions';
 import { getCachedMessages, setCachedMessages, CachedMessage } from '@/lib/indexed-db';
+import { UserData, ProjectData, Message } from '@/types/dashboard';
 
-interface UserData {
-  id: string;
-  name: string;
-  username: string;
-  email: string;
-}
-
-interface ProjectData {
-  id: string;
-  name: string;
-  apiKey: string;
-  discordEnabled: boolean;
-  discordWebhook: string | null;
-  telegramEnabled: boolean;
-  telegramToken: string | null;
-  telegramChatId: string | null;
-  emailEnabled: boolean;
-  emailRecipient: string | null;
-  platform?: string | null;
-  platformUrl?: string | null;
-}
-
-interface Message {
-  id: string;
-  projectId: string;
-  name: string;
-  email: string;
-  subject: string | null;
-  message: string;
-  status: string;
-  createdAt: string | Date;
-  spamScore?: number | null;
-  priority?: string | null;
-  sentiment?: string | null;
-}
+// Import components
+import Sidebar from '@/components/dashboard/Sidebar';
+import MessageList from '@/components/dashboard/MessageList';
+import MessageDetail from '@/components/dashboard/MessageDetail';
+import SettingsPane from '@/components/dashboard/SettingsPane';
 
 interface DashboardClientProps {
   initialUser: UserData;
@@ -87,8 +35,6 @@ export default function DashboardClient({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'archived'>('all');
   const [activeView, setActiveView] = useState<'inbox' | 'settings'>('inbox');
-  const [copiedStates, setCopiedStates] = useState<Record<string, boolean>>({});
-  const [showApiKey, setShowApiKey] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   
@@ -189,7 +135,6 @@ export default function DashboardClient({
   const fetchLatestMessages = async (): Promise<boolean> => {
     setIsSyncing(true);
     try {
-      console.log('[DashboardClient] Fetching latest messages from API...');
       const response = await fetch('/api/messages', {
         headers: {
           'Authorization': `Bearer ${project.apiKey}`
@@ -202,7 +147,6 @@ export default function DashboardClient({
       
       const data = await response.json();
       if (data.success && Array.isArray(data.messages)) {
-        console.log(`[DashboardClient] Successfully loaded ${data.messages.length} messages from server.`);
         setMessages(data.messages);
         if (data.project) {
           setProject(data.project);
@@ -228,7 +172,6 @@ export default function DashboardClient({
     const loadInitialData = async () => {
       setSelectedMessageId(null);
       setMessages([]); // clear current project messages to show shimmer skeletons
-      console.log(`[DashboardClient] Project changed to ${project.name}. Syncing fresh data...`);
       await fetchLatestMessages();
     };
     loadInitialData();
@@ -236,16 +179,13 @@ export default function DashboardClient({
 
   // Real-time updates: Poll for new messages every 5 seconds (only when tab is visible)
   useEffect(() => {
-    console.log('[DashboardClient] Starting background message polling cycle...');
     const interval = setInterval(async () => {
       if (document.visibilityState === 'visible' && !isOffline) {
         await fetchLatestMessages();
       }
     }, 5000);
     
-    return () => {
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [project.apiKey, isOffline]);
 
   const selectedMessage = messages.find(m => m.id === selectedMessageId);
@@ -341,23 +281,10 @@ export default function DashboardClient({
     }
   };
 
-  // Utility to copy strings
-  const copyToClipboard = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedStates(prev => ({ ...prev, [id]: true }));
-    setTimeout(() => setCopiedStates(prev => ({ ...prev, [id]: false })), 2000);
-    triggerToast('Copied to clipboard!');
-  };
-
-  // Date Formatter
-  const formatFriendlyDate = (dateStr: string | Date) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString(undefined, { 
-      month: 'short', 
-      day: 'numeric', 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+  const handleLogout = async () => {
+    const { logoutUser } = await import('./actions');
+    await logoutUser();
+    window.location.reload();
   };
 
   // Filter messages based on Search & Tabs
@@ -381,66 +308,6 @@ export default function DashboardClient({
   const archivedCount = messages.filter(m => m.status === 'archived').length;
   const totalInbox = messages.filter(m => m.status !== 'archived').length;
 
-  const endpointUrl = `${typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/api/messages`;
-  
-  // Code integration snippet for user's portfolio site
-  const integrationSnippet = `// API call using Fetch
-async function sendContactMessage(name, email, subject, message) {
-  const response = await fetch('${endpointUrl}', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-project-id': '${project.id}',
-      'Authorization': 'Bearer ${project.apiKey}'
-    },
-    body: JSON.stringify({ name, email, subject, message })
-  });
-  return response.json();
-}`;
-
-  const curlSnippet = `curl -X POST ${endpointUrl} \\
-  -H "Content-Type: application/json" \\
-  -H "x-project-id: ${project.id}" \\
-  -H "Authorization: Bearer ${project.apiKey}" \\
-  -d '{"name":"John","email":"john@test.com","subject":"Hello","message":"Hi there"}'`;
-
-  const jsonInput = `{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "subject": "Hello",
-  "message": "I'd like to work with you."
-}`;
-
-  const jsonOutput = `{
-  "success": true,
-  "message": "Message sent successfully"
-}`;
-
-  const aiPrompt = `I have a website and I want to integrate Strata as my contact form backend. Please write the necessary code to send form submissions to my Strata endpoint.
-
-API DETAILS:
-- Endpoint: POST ${endpointUrl}
-- Required Headers: 
-  - "Content-Type": "application/json"
-  - "x-project-id": "YOUR_PROJECT_ID"
-  - "Authorization": "Bearer YOUR_API_KEY"
-
-PAYLOAD STRUCTURE (JSON):
-{
-  "name": "string (required)",
-  "email": "string (required)",
-  "subject": "string (optional)",
-  "message": "string (required)"
-}
-
-EXPECTED SUCCESS RESPONSE (200 OK):
-{
-  "success": true,
-  "message": "Message sent successfully"
-}
-
-Please implement the API call, handling loading states, success messages, and error states gracefully. Remember to keep the API keys out of client-side code if possible, or use environment variables.`;
-
   return (
     <div className="appContainer">
       {/* Toast Alert */}
@@ -452,792 +319,76 @@ Please implement the API call, handling loading states, success messages, and er
       )}
 
       {/* 1. Sidebar Panel */}
-      <aside className={`sidebar ${isSidebarCollapsed ? 'sidebarCollapsed' : ''}`}>
-        <div className="logoArea" style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Mail className="logoIcon" size={24} />
-            <span className="logoText">Strata</span>
-          </div>
-          <button 
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '4px',
-              borderRadius: '4px',
-              transition: 'color 0.2s'
-            }}
-            title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-          >
-            {isSidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-          </button>
-        </div>
-
-        {/* Project Selector Workspace */}
-        {!isSidebarCollapsed ? (
-          <div style={{ padding: '0 16px', marginBottom: '16px', marginTop: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Project Workspace</span>
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <select
-                value={project.id}
-                onChange={(e) => {
-                  const selected = projects.find(p => p.id === e.target.value);
-                  if (selected) setProject(selected);
-                }}
-                style={{
-                  flex: 1,
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-primary)',
-                  padding: '8px 10px',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  outline: 'none',
-                  minWidth: 0
-                }}
-              >
-                {projects.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                style={{
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-primary)',
-                  padding: '8px 10px',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
-                }}
-                title="Create New Project"
-              >
-                <Plus size={14} />
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px', marginTop: '12px' }}>
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              style={{
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-primary)',
-                padding: '8px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              title="Create New Project"
-            >
-              <Plus size={16} />
-            </button>
-          </div>
-        )}
-
-        <nav className="sidebarMenu">
-          <button 
-            className={`menuItem ${activeView === 'inbox' ? 'menuItemActive' : ''}`}
-            onClick={() => setActiveView('inbox')}
-            title="Inbox"
-          >
-            <div className="menuItemInner">
-              <Inbox size={18} />
-              <span>Inbox</span>
-            </div>
-            {unreadCount > 0 && (
-              <span className="sidebarBadge">{unreadCount}</span>
-            )}
-          </button>
-
-          <button 
-            className={`menuItem ${activeView === 'settings' ? 'menuItemActive' : ''}`}
-            onClick={() => setActiveView('settings')}
-            title="Integration & Settings"
-          >
-            <div className="menuItemInner">
-              <Settings size={18} />
-              <span>Integration & Settings</span>
-            </div>
-          </button>
-        </nav>
-
-        <div className="sidebarFooter" style={{
-          padding: '16px',
-          borderTop: '1px solid var(--border-color)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: isSidebarCollapsed ? 'center' : 'space-between',
-          gap: '12px',
-          minWidth: 0
-        }}>
-          {!isSidebarCollapsed ? (
-            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-              <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                {initialUser.name}
-              </span>
-              <span style={{ fontSize: '10px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                {initialUser.email}
-              </span>
-            </div>
-          ) : null}
-          <button
-            onClick={async () => {
-              const { logoutUser } = await import('./actions');
-              await logoutUser();
-              window.location.reload();
-            }}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '6px',
-              borderRadius: '6px',
-              transition: 'all 0.2s',
-              flexShrink: 0
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--danger)'}
-            onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-secondary)'}
-            title="Log Out"
-          >
-            <LogOut size={16} />
-          </button>
-        </div>
-      </aside>
+      <Sidebar 
+        initialUser={initialUser}
+        projects={projects}
+        project={project}
+        setProject={setProject}
+        isSidebarCollapsed={isSidebarCollapsed}
+        setIsSidebarCollapsed={setIsSidebarCollapsed}
+        activeView={activeView}
+        setActiveView={setActiveView}
+        unreadCount={unreadCount}
+        setIsCreateModalOpen={setIsCreateModalOpen}
+        handleLogout={handleLogout}
+      />
 
       {/* Main View Router */}
       {activeView === 'inbox' ? (
         <>
           {/* 2. Middle Panel: Messages List */}
-          <section className="listPane">
-            <div className="listHeader">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', gap: '8px' }}>
-                <h2 className="listTitle" style={{ margin: 0 }}>Messages</h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {isOffline ? (
-                    <div style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      color: 'var(--warning)',
-                      background: 'rgba(245, 158, 11, 0.1)',
-                      padding: '4px 8px',
-                      borderRadius: '12px',
-                      border: '1px solid rgba(245, 158, 11, 0.2)'
-                    }}>
-                      <span style={{
-                        width: '6px',
-                        height: '6px',
-                        borderRadius: '50%',
-                        background: 'var(--warning)',
-                        display: 'inline-block',
-                      }}></span>
-                      <span>Offline Cache</span>
-                    </div>
-                  ) : (
-                    <div style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      fontSize: '11px',
-                      fontWeight: '600',
-                      color: 'var(--success)',
-                      background: 'var(--success-glow)',
-                      padding: '4px 8px',
-                      borderRadius: '12px',
-                      border: '1px solid rgba(16, 185, 129, 0.2)'
-                    }}>
-                      <span style={{
-                        width: '6px',
-                        height: '6px',
-                        borderRadius: '50%',
-                        background: 'var(--success)',
-                        display: 'inline-block',
-                        animation: isSyncing ? 'pulse 1s infinite' : 'none'
-                      }}></span>
-                      <span>{isSyncing ? 'Syncing...' : 'Live Sync'}</span>
-                    </div>
-                  )}
-                  
-                  <button 
-                    onClick={async () => {
-                      triggerToast('Checking server for updates...');
-                      const ok = await fetchLatestMessages();
-                      triggerToast(ok ? 'Sync completed successfully!' : 'Sync failed (Offline cache active)');
-                    }}
-                    style={{
-                      background: 'var(--bg-tertiary)',
-                      border: '1px solid var(--border-color)',
-                      color: 'var(--text-primary)',
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      fontSize: '11px',
-                      fontWeight: '500',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                    title="Fetch latest messages from server"
-                  >
-                    Sync
-                  </button>
-                </div>
-              </div>
-              
-              <div className="searchContainer">
-                <Search className="searchIcon" size={16} />
-                <input 
-                  type="text" 
-                  placeholder="Search sender, email, content..." 
-                  className="searchInput"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-
-              <div className="tabsContainer">
-                <button 
-                  className={`tabButton ${activeTab === 'all' ? 'tabButtonActive' : ''}`}
-                  onClick={() => { setActiveTab('all'); setSelectedMessageId(null); }}
-                >
-                  Inbox ({totalInbox})
-                </button>
-                <button 
-                  className={`tabButton ${activeTab === 'unread' ? 'tabButtonActive' : ''}`}
-                  onClick={() => { setActiveTab('unread'); setSelectedMessageId(null); }}
-                >
-                  Unread ({unreadCount})
-                </button>
-                <button 
-                  className={`tabButton ${activeTab === 'archived' ? 'tabButtonActive' : ''}`}
-                  onClick={() => { setActiveTab('archived'); setSelectedMessageId(null); }}
-                >
-                  Archived ({archivedCount})
-                </button>
-              </div>
-            </div>
-
-            <div className="messagesList">
-              {isSyncing && messages.length === 0 ? (
-                Array.from({ length: 4 }).map((_, index) => (
-                  <div key={index} className="skeletonCard">
-                    <div className="skeletonHeader">
-                      <div className="skeletonName"></div>
-                      <div className="skeletonTime"></div>
-                    </div>
-                    <div className="skeletonSubject"></div>
-                    <div className="skeletonPreview"></div>
-                  </div>
-                ))
-              ) : filteredMessages.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-secondary)' }}>
-                  <p style={{ fontSize: '14px', fontWeight: '500' }}>No messages found</p>
-                  <p style={{ fontSize: '12px', marginTop: '4px', color: 'var(--text-muted)' }}>
-                    {searchQuery ? 'Try a different search query' : 'Your Strata inbox is empty.'}
-                  </p>
-                </div>
-              ) : (
-                filteredMessages.map((msg) => (
-                  <div 
-                    key={msg.id} 
-                    className={`messageCard ${selectedMessageId === msg.id ? 'messageCardActive' : ''} ${msg.status === 'unread' ? 'messageCardUnread' : ''}`}
-                    onClick={() => setSelectedMessageId(msg.id)}
-                  >
-                    <div className="cardHeader">
-                      <span className="cardName">{msg.name}</span>
-                      <span className="cardTime" suppressHydrationWarning>
-                        {formatFriendlyDate(msg.createdAt)}
-                      </span>
-                    </div>
-                    {msg.subject && (
-                      <h4 className="cardSubject">{msg.subject}</h4>
-                    )}
-                    <p className="cardPreview" style={{ marginBottom: '6px' }}>{msg.message}</p>
-                    
-                    {/* Optional AI Badges */}
-                    {(msg.priority || msg.sentiment || (msg.spamScore !== undefined && msg.spamScore !== null)) && (
-                      <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
-                        {msg.priority && (
-                          <span style={{
-                            fontSize: '9px',
-                            fontWeight: '700',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            background: msg.priority === 'high' ? 'var(--danger-glow)' : msg.priority === 'medium' ? 'rgba(245, 158, 11, 0.1)' : 'var(--bg-tertiary)',
-                            color: msg.priority === 'high' ? 'var(--danger)' : msg.priority === 'medium' ? 'var(--warning)' : 'var(--text-secondary)',
-                            border: `1px solid ${msg.priority === 'high' ? 'rgba(239, 68, 68, 0.2)' : msg.priority === 'medium' ? 'rgba(245, 158, 11, 0.2)' : 'var(--border-color)'}`
-                          }}>
-                            {msg.priority.toUpperCase()}
-                          </span>
-                        )}
-                        {msg.sentiment && (
-                          <span style={{
-                            fontSize: '9px',
-                            fontWeight: '700',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            background: msg.sentiment === 'positive' ? 'var(--success-glow)' : msg.sentiment === 'negative' ? 'var(--danger-glow)' : 'var(--bg-tertiary)',
-                            color: msg.sentiment === 'positive' ? 'var(--success)' : msg.sentiment === 'negative' ? 'var(--danger)' : 'var(--text-secondary)',
-                            border: `1px solid ${msg.sentiment === 'positive' ? 'rgba(16, 185, 129, 0.2)' : msg.sentiment === 'negative' ? 'rgba(239, 68, 68, 0.2)' : 'var(--border-color)'}`
-                          }}>
-                            {msg.sentiment === 'positive' ? '😊 POSITIVE' : msg.sentiment === 'negative' ? '😠 NEGATIVE' : '😐 NEUTRAL'}
-                          </span>
-                        )}
-                        {msg.spamScore !== undefined && msg.spamScore !== null && msg.spamScore > 0.5 && (
-                          <span style={{
-                            fontSize: '9px',
-                            fontWeight: '700',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            background: 'rgba(239, 68, 68, 0.15)',
-                            color: 'var(--danger)',
-                            border: '1px solid rgba(239, 68, 68, 0.3)'
-                          }}>
-                            🚨 SPAM: {Math.round(msg.spamScore * 100)}%
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
+          <MessageList 
+            messages={messages}
+            filteredMessages={filteredMessages}
+            isOffline={isOffline}
+            isSyncing={isSyncing}
+            fetchLatestMessages={fetchLatestMessages}
+            triggerToast={triggerToast}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            setSelectedMessageId={setSelectedMessageId}
+            selectedMessageId={selectedMessageId}
+            totalInbox={totalInbox}
+            unreadCount={unreadCount}
+            archivedCount={archivedCount}
+          />
 
           {/* 3. Right Panel: Selected Message Detail */}
-          <section className="detailsPane">
-            {selectedMessage ? (
-              <>
-                <div className="detailsHeader">
-                  <div className="detailsMeta">
-                    <h1 className="detailsSubject">{selectedMessage.subject || 'No Subject'}</h1>
-                    
-                    <div className="detailsSenderRow">
-                      <span className="detailsSenderName">{selectedMessage.name}</span>
-                      <a href={`mailto:${selectedMessage.email}`} className="detailsSenderEmail">
-                        &lt;{selectedMessage.email}&gt;
-                      </a>
-                    </div>
-                    <span className="detailsTime" suppressHydrationWarning>
-                      Received on {new Date(selectedMessage.createdAt).toLocaleString()}
-                    </span>
-
-                    {/* Optional AI Telemetry Metadata */}
-                    {((selectedMessage.spamScore !== undefined && selectedMessage.spamScore !== null) || selectedMessage.priority || selectedMessage.sentiment) && (
-                      <div style={{
-                        display: 'flex',
-                        gap: '16px',
-                        marginTop: '12px',
-                        background: 'var(--bg-glass-hover)',
-                        border: '1px solid var(--border-color)',
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        width: 'fit-content'
-                      }}>
-                        {selectedMessage.priority && (
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Priority</span>
-                            <span style={{
-                              fontSize: '12px',
-                              fontWeight: '700',
-                              color: selectedMessage.priority === 'high' ? 'var(--danger)' : selectedMessage.priority === 'medium' ? 'var(--warning)' : 'var(--text-secondary)'
-                            }}>
-                              {selectedMessage.priority.toUpperCase()}
-                            </span>
-                          </div>
-                        )}
-                        {selectedMessage.sentiment && (
-                          <div style={{ display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--border-color)', paddingLeft: '16px' }}>
-                            <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Sentiment</span>
-                            <span style={{
-                              fontSize: '12px',
-                              fontWeight: '700',
-                              color: selectedMessage.sentiment === 'positive' ? 'var(--success)' : selectedMessage.sentiment === 'negative' ? 'var(--danger)' : 'var(--text-secondary)'
-                            }}>
-                              {selectedMessage.sentiment === 'positive' ? '😊 Positive' : selectedMessage.sentiment === 'negative' ? '😠 Negative' : '😐 Neutral'}
-                            </span>
-                          </div>
-                        )}
-                        {selectedMessage.spamScore !== undefined && selectedMessage.spamScore !== null && (
-                          <div style={{ display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--border-color)', paddingLeft: '16px' }}>
-                            <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Spam Score</span>
-                            <span style={{
-                              fontSize: '12px',
-                              fontWeight: '700',
-                              color: selectedMessage.spamScore > 0.5 ? 'var(--danger)' : 'var(--success)'
-                            }}>
-                              {Math.round(selectedMessage.spamScore * 100)}%
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="detailsActions">
-                    <button 
-                      className="actionButton"
-                      onClick={() => handleToggleArchive(selectedMessage)}
-                      title={selectedMessage.status === 'archived' ? 'Move back to Inbox' : 'Archive message'}
-                    >
-                      <Archive size={16} />
-                      <span>{selectedMessage.status === 'archived' ? 'Unarchive' : 'Archive'}</span>
-                    </button>
-                    
-                    <a 
-                      href={`mailto:${selectedMessage.email}?subject=Re: ${encodeURIComponent(selectedMessage.subject || 'Inquiry from portfolio')}`}
-                      className="actionButton actionButtonAccent"
-                      title="Reply via Email"
-                    >
-                      <Send size={16} />
-                      <span>Reply</span>
-                    </a>
-
-                    <button 
-                      className="actionButton actionButtonDanger"
-                      onClick={() => handleDelete(selectedMessage)}
-                      title="Delete permanently"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="detailsContent">
-                  <div className="messageBody">
-                    {selectedMessage.message}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="emptyState">
-                <Inbox className="emptyIcon" size={64} />
-                <h3>No message selected</h3>
-                <p>Select a contact submission from the inbox column to view details, archive, or reply.</p>
-              </div>
-            )}
-          </section>
+          <MessageDetail 
+            selectedMessage={selectedMessage}
+            handleToggleArchive={handleToggleArchive}
+            handleDelete={handleDelete}
+          />
         </>
       ) : (
         /* Settings & Integration View */
-        <section className="settingsPane">
-          <h2 className="settingsTitle">
-            <Settings size={28} style={{ color: 'var(--accent)' }} />
-            <span>Settings & Integration Guide</span>
-          </h2>
-
-          <div className="statsGrid">
-            <div className="statCard">
-              <div className="statIconWrapper">
-                <Inbox size={20} style={{ color: 'var(--accent-light)' }} />
-              </div>
-              <div className="statText">
-                <span className="statValue">{messages.length}</span>
-                <span className="statLabel">Total Submissions</span>
-              </div>
-            </div>
-
-            <div className="statCard">
-              <div className="statIconWrapper">
-                <AlertCircle size={20} style={{ color: 'var(--warning)' }} />
-              </div>
-              <div className="statText">
-                <span className="statValue">{unreadCount}</span>
-                <span className="statLabel">Unread Messages</span>
-              </div>
-            </div>
-
-            <div className="statCard">
-              <div className="statIconWrapper">
-                <CheckSquare size={20} style={{ color: 'var(--success)' }} />
-              </div>
-              <div className="statText">
-                <span className="statValue">
-                  {[project.discordEnabled, project.telegramEnabled, project.emailEnabled].filter(Boolean).length} / 3
-                </span>
-                <span className="statLabel">Active Channels</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="settingsSection">
-            <h3 className="sectionTitle">
-              <Key size={18} style={{ color: 'var(--accent-light)' }} />
-              <span>Credentials</span>
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
-              
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-tertiary)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>API Endpoint</span>
-                  <span style={{ fontSize: '13px', fontFamily: 'monospace', color: 'var(--text-primary)' }}>{endpointUrl}</span>
-                </div>
-                <button onClick={() => copyToClipboard(endpointUrl, 'url')} className="actionButton" style={{ padding: '6px' }}>
-                  {copiedStates['url'] ? <Check size={16} style={{ color: 'var(--success)' }} /> : <Copy size={16} />}
-                </button>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-tertiary)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>Project ID</span>
-                  <span style={{ fontSize: '13px', fontFamily: 'monospace', color: 'var(--text-primary)' }}>{project.id}</span>
-                </div>
-                <button onClick={() => copyToClipboard(project.id, 'projectId')} className="actionButton" style={{ padding: '6px' }}>
-                  {copiedStates['projectId'] ? <Check size={16} style={{ color: 'var(--success)' }} /> : <Copy size={16} />}
-                </button>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-tertiary)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>API Key (Bearer Token)</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '13px', fontFamily: 'monospace', color: 'var(--text-primary)' }}>
-                      {showApiKey ? project.apiKey : '•'.repeat(Math.min(project.apiKey.length, 32))}
-                    </span>
-                    <button onClick={() => setShowApiKey(!showApiKey)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}>
-                      {showApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
-                </div>
-                <button onClick={() => copyToClipboard(project.apiKey, 'apiKey')} className="actionButton" style={{ padding: '6px' }}>
-                  {copiedStates['apiKey'] ? <Check size={16} style={{ color: 'var(--success)' }} /> : <Copy size={16} />}
-                </button>
-              </div>
-
-            </div>
-          </div>
-
-          <div className="settingsSection">
-            <h3 className="sectionTitle">
-              <Bot size={18} style={{ color: 'var(--accent-light)' }} />
-              <span>AI Agent Prompt (Quick Start)</span>
-            </h3>
-            <p className="sectionDesc">
-              Building your site with AI? Just copy this prompt into Cursor, ChatGPT, or GitHub Copilot and it will instantly build a working React/Next.js contact form integrated with your Strata backend.
-            </p>
-            <div className="codeBlockHeader" style={{ background: 'var(--accent-light)', color: '#000' }}>
-              <span style={{ fontWeight: 600 }}>Prompt for AI Assistant</span>
-              <button onClick={() => copyToClipboard(aiPrompt, 'prompt')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
-                {copiedStates['prompt'] ? <Check size={14} /> : <Copy size={14} />}
-                <span>{copiedStates['prompt'] ? 'Copied' : 'Copy Prompt'}</span>
-              </button>
-            </div>
-            <pre className="codeBlock" style={{ whiteSpace: 'pre-wrap', borderTopLeftRadius: 0, borderTopRightRadius: 0, borderTop: 'none' }}>{aiPrompt}</pre>
-          </div>
-
-          <div className="settingsSection">
-            <h3 className="sectionTitle">
-              <Code size={18} style={{ color: 'var(--accent-light)' }} />
-              <span>API Integration Guide</span>
-            </h3>
-            <p className="sectionDesc">
-              Send a JSON POST request to your Strata endpoint when a user submits your form.
-            </p>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
-              <div>
-                <div className="codeBlockHeader">
-                  <span>Sample Request (Fetch)</span>
-                  <button onClick={() => copyToClipboard(integrationSnippet, 'fetch')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {copiedStates['fetch'] ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
-                  </button>
-                </div>
-                <pre className="codeBlock" style={{ fontSize: '11px' }}>{integrationSnippet}</pre>
-              </div>
-              
-              <div>
-                <div className="codeBlockHeader">
-                  <span>Sample Request (cURL)</span>
-                  <button onClick={() => copyToClipboard(curlSnippet, 'curl')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {copiedStates['curl'] ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
-                  </button>
-                </div>
-                <pre className="codeBlock" style={{ fontSize: '11px', whiteSpace: 'pre-wrap' }}>{curlSnippet}</pre>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
-              <div>
-                <div className="codeBlockHeader">
-                  <span>Expected Input (JSON)</span>
-                  <button onClick={() => copyToClipboard(jsonInput, 'input')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {copiedStates['input'] ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
-                  </button>
-                </div>
-                <pre className="codeBlock" style={{ fontSize: '11px' }}>{jsonInput}</pre>
-              </div>
-              
-              <div>
-                <div className="codeBlockHeader">
-                  <span>Success Output (JSON)</span>
-                  <button onClick={() => copyToClipboard(jsonOutput, 'output')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {copiedStates['output'] ? <Check size={14} style={{ color: '#10b981' }} /> : <Copy size={14} />}
-                  </button>
-                </div>
-                <pre className="codeBlock" style={{ fontSize: '11px' }}>{jsonOutput}</pre>
-              </div>
-            </div>
-          </div>
-
-          <div className="settingsSection">
-            <h3 className="sectionTitle">
-              <Settings size={18} style={{ color: 'var(--accent-light)' }} />
-              <span>Step 2: Configure Notification Routing Channels</span>
-            </h3>
-            <p className="sectionDesc">
-              Enable channels and enter credentials to route incoming submissions dynamically.
-            </p>
-
-            {/* A. Discord Routing Channel */}
-            <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '20px', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: '600' }}>Discord Webhook Alerts</span>
-                </div>
-                <label className="switch" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={discordEnabled}
-                    onChange={(e) => setDiscordEnabled(e.target.checked)}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    {discordEnabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                </label>
-              </div>
-              
-              {discordEnabled && (
-                <div className="configField">
-                  <label className="configLabel">Webhook URL</label>
-                  <input 
-                    type="text" 
-                    placeholder="https://discord.com/api/webhooks/..." 
-                    className="configInput" 
-                    value={discordWebhook}
-                    onChange={(e) => setDiscordWebhook(e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* B. Telegram Routing Channel */}
-            <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '20px', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: '600' }}>Telegram Bot Alerts</span>
-                </div>
-                <label className="switch" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={telegramEnabled}
-                    onChange={(e) => setTelegramEnabled(e.target.checked)}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    {telegramEnabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                </label>
-              </div>
-              
-              {telegramEnabled && (
-                <div className="gridTwoCol">
-                  <div className="configField">
-                    <label className="configLabel">Bot API Token</label>
-                    <input 
-                      type="password" 
-                      placeholder="123456789:ABCdefGhIJKlmNoPQRsT..." 
-                      className="configInput" 
-                      value={telegramToken}
-                      onChange={(e) => setTelegramToken(e.target.value)}
-                    />
-                  </div>
-                  <div className="configField">
-                    <label className="configLabel">Chat Target ID</label>
-                    <input 
-                      type="text" 
-                      placeholder="-100123456789" 
-                      className="configInput" 
-                      value={telegramChatId}
-                      onChange={(e) => setTelegramChatId(e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* C. Email Routing Channel */}
-            <div style={{ paddingBottom: '20px', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: '600' }}>Email SMTP Alerts</span>
-                </div>
-                <label className="switch" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={emailEnabled}
-                    onChange={(e) => setEmailEnabled(e.target.checked)}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                    {emailEnabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                </label>
-              </div>
-              
-              {emailEnabled && (
-                <div className="configField">
-                  <label className="configLabel">Recipient Email Address</label>
-                  <input 
-                    type="email" 
-                    placeholder="my-alerts@domain.com" 
-                    className="configInput" 
-                    value={emailRecipient}
-                    onChange={(e) => setEmailRecipient(e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Save Buttons */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
-              <button 
-                onClick={handleSaveSettings}
-                disabled={isSavingSettings}
-                className="actionButton actionButtonAccent"
-                style={{ minWidth: '140px' }}
-              >
-                {isSavingSettings ? 'Saving...' : 'Save Settings'}
-              </button>
-            </div>
-          </div>
-        </section>
+        <SettingsPane 
+          project={project}
+          messages={messages}
+          unreadCount={unreadCount}
+          discordEnabled={discordEnabled}
+          setDiscordEnabled={setDiscordEnabled}
+          discordWebhook={discordWebhook}
+          setDiscordWebhook={setDiscordWebhook}
+          telegramEnabled={telegramEnabled}
+          setTelegramEnabled={setTelegramEnabled}
+          telegramToken={telegramToken}
+          setTelegramToken={setTelegramToken}
+          telegramChatId={telegramChatId}
+          setTelegramChatId={setTelegramChatId}
+          emailEnabled={emailEnabled}
+          setEmailEnabled={setEmailEnabled}
+          emailRecipient={emailRecipient}
+          setEmailRecipient={setEmailRecipient}
+          handleSaveSettings={handleSaveSettings}
+          isSavingSettings={isSavingSettings}
+          triggerToast={triggerToast}
+        />
       )}
+      
+      {/* Create Project Modal */}
       {isCreateModalOpen && (
         <div style={{
           position: 'fixed',
