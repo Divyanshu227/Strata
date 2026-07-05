@@ -99,13 +99,17 @@ export async function generateUsernameRecommendations(baseUsername: string): Pro
   return recommendations;
 }
 
+function getBaseUrl() {
+  return process.env.NEXT_PUBLIC_APP_URL || 'https://strata-zt3x.vercel.app';
+}
+
 /**
  * Triggers Welcome/Registration Success emails.
  * Integrates Nodemailer if SMTP details are configured, else writes mock files.
  */
 export async function sendWelcomeEmail(email: string, name: string, username: string, isDefaultPassword: boolean, verifyToken?: string) {
   const subject = 'Registration Successful on Strata';
-  const verifyLink = verifyToken ? `\n\nTo activate your account and enable email routing, please verify your email address by clicking the link below:\n${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/verify-email?token=${verifyToken}` : '';
+  const verifyLink = verifyToken ? `\n\nTo activate your account and enable email routing, please verify your email address by clicking the link below:\n${getBaseUrl()}/api/verify-email?token=${verifyToken}` : '';
   const body = `Welcome ${name}!
 
 Registration is successful.
@@ -156,7 +160,7 @@ Subject: ${subject}
 
 export async function sendPasswordResetEmail(email: string, token: string) {
   const subject = 'Password Reset Request for Strata';
-  const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+  const resetLink = `${getBaseUrl()}/reset-password?token=${token}`;
   const body = `You recently requested to reset your Strata password.
 
 Click the link below to set a new password:
