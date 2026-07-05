@@ -10,7 +10,8 @@ import {
   signToken, 
   verifyToken, 
   generateUsernameRecommendations, 
-  sendWelcomeEmail 
+  sendWelcomeEmail,
+  sendPasswordResetEmail
 } from '@/lib/auth-utils';
 
 /**
@@ -163,6 +164,64 @@ export async function resendVerificationEmail() {
   } catch (error: any) {
     console.error('Failed to resend verification email:', error);
     return { success: false, message: error.message };
+  }
+}
+
+export async function requestPasswordReset(email: string) {
+  try {
+    const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    if (!user) {
+      // Return success anyway to prevent email enumeration
+      return { success: true, message: 'If an account exists, a reset link has been sent.' };
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expiry = new Date();
+    expiry.setHours(expiry.getHours() + 1);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { resetToken, resetTokenExpiry: expiry }
+    });
+
+    await sendPasswordResetEmail(user.email, resetToken);
+    return { success: true, message: 'If an account exists, a reset link has been sent.' };
+  } catch (error: any) {
+    console.error('Failed to request password reset:', error);
+    return { success: false, message: 'An error occurred. Please try again.' };
+  }
+}
+
+export async function resetPassword(token: string, newPassword: string) {
+  try {
+    if (!token || !newPassword) return { success: false, message: 'Token and new password are required.' };
+
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: token,
+        resetTokenExpiry: { gt: new Date() } // Token must not be expired
+      }
+    });
+
+    if (!user) {
+      return { success: false, message: 'Invalid or expired reset token.' };
+    }
+
+    const hashedPassword = await hashPassword(newPassword.trim());
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetToken: null,
+        resetTokenExpiry: null
+      }
+    });
+
+    return { success: true, message: 'Password reset successfully. You can now log in.' };
+  } catch (error: any) {
+    console.error('Failed to reset password:', error);
+    return { success: false, message: 'Failed to reset password. Please try again.' };
   }
 }
 

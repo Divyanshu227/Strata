@@ -15,9 +15,11 @@ model User {
   username  String    @unique
   email         String    @unique
   password      String
-  emailVerified Boolean   @default(false)
-  verifyToken   String?
-  projects      Project[]
+  emailVerified    Boolean   @default(false)
+  verifyToken      String?
+  resetToken       String?
+  resetTokenExpiry DateTime?
+  projects         Project[]
   createdAt     DateTime  @default(now())
 }
 

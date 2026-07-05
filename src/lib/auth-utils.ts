@@ -153,3 +153,41 @@ Subject: ${subject}
 ==============================================================
 `);
 }
+
+export async function sendPasswordResetEmail(email: string, token: string) {
+  const subject = 'Password Reset Request for Strata';
+  const resetLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+  const body = `You recently requested to reset your Strata password.
+
+Click the link below to set a new password:
+${resetLink}
+
+If you did not request this, please ignore this email. The link will expire in 1 hour.
+`;
+
+  const { SMTP_HOST, SMTP_USER, SMTP_PASS, SMTP_FROM } = process.env;
+  if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: SMTP_HOST,
+        port: 587,
+        secure: false,
+        auth: { user: SMTP_USER, pass: SMTP_PASS }
+      });
+
+      await transporter.sendMail({
+        from: SMTP_FROM || '"Strata Accounts" <no-reply@strata-app.com>',
+        to: email,
+        subject,
+        text: body
+      });
+      console.log(`[Email Dispatch] Success: Reset email dispatched to ${email}`);
+    } catch (err: any) {
+      console.error('Reset email dispatch via SMTP failed:', err.message);
+      logMockEmailConsole(email, subject, body);
+    }
+  } else {
+    logMockEmailConsole(email, subject, body);
+  }
+}
+

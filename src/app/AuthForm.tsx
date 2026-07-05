@@ -2,15 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { Mail, Shield, User, Globe, ArrowRight, ArrowLeft, Key, Sparkles, Check, AlertCircle } from 'lucide-react';
-import { registerUser, loginUser } from './actions';
+import { registerUser, loginUser, requestPasswordReset } from './actions';
 
 export default function AuthForm() {
-  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+  const [activeTab, setActiveTab] = useState<'login' | 'register' | 'forgot_password'>('login');
   
   // Registration Form States
   const [registerStep, setRegisterStep] = useState(1);
   const [ownerName, setOwnerName] = useState('');
   const [email, setEmail] = useState('');
+  const [forgotEmail, setForgotEmail] = useState('');
   const [platformName, setPlatformName] = useState('');
   const [platformUrl, setPlatformUrl] = useState('');
   const [username, setUsername] = useState('');
@@ -115,6 +116,26 @@ export default function AuthForm() {
         window.location.reload();
       } else {
         setErrorMsg(response.message || 'Invalid username/email or password.');
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Server connection failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+    setLoading(true);
+
+    try {
+      const response = await requestPasswordReset(forgotEmail);
+      if (response.success) {
+        setErrorMsg('If an account exists, a reset link has been sent to ' + forgotEmail);
+        setForgotEmail('');
+      } else {
+        setErrorMsg(response.message || 'Failed to request password reset.');
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Server connection failed.');
@@ -261,6 +282,15 @@ export default function AuthForm() {
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
               />
+              <div style={{ textAlign: 'right', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('forgot_password'); setErrorMsg(null); }}
+                  style={{ background: 'none', border: 'none', color: 'var(--accent-light)', fontSize: '12px', cursor: 'pointer', padding: 0 }}
+                >
+                  Forgot Password?
+                </button>
+              </div>
             </div>
 
             <button
@@ -271,6 +301,47 @@ export default function AuthForm() {
             >
               {loading ? 'Authenticating...' : 'Sign In'}
             </button>
+          </form>
+        ) : activeTab === 'forgot_password' ? (
+          /* FORGOT PASSWORD VIEW */
+          <form onSubmit={handleForgotPasswordSubmit}>
+            <div style={{ marginBottom: '24px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+              Enter your email address and we will send you a link to reset your password.
+            </div>
+            
+            <div className="configField" style={{ marginBottom: '24px' }}>
+              <label className="configLabel" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Mail size={14} />
+                <span>Email Address</span>
+              </label>
+              <input
+                type="email"
+                required
+                placeholder="john@example.com"
+                className="configInput"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="actionButton actionButtonAccent"
+              style={{ width: '100%', padding: '10px 16px', fontWeight: '700', marginBottom: '16px' }}
+            >
+              {loading ? 'Sending...' : 'Send Reset Link'}
+            </button>
+
+            <div style={{ textAlign: 'center' }}>
+              <button
+                type="button"
+                onClick={() => { setActiveTab('login'); setErrorMsg(null); }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '12px', cursor: 'pointer', padding: 0 }}
+              >
+                Back to Login
+              </button>
+            </div>
           </form>
         ) : (
           /* REGISTER 3-STEP WIZARD */
