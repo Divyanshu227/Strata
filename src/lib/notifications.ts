@@ -159,7 +159,7 @@ export async function sendEmailNotification(
     console.log(`\n  --- [MOCK EMAIL SENT SUCCESS] ---`);
     console.log(`  To: ${emailRecipient}`);
     console.log(`  Subject: ${mailSubject}`);
-    console.log(`  Body:\n${textBody.split('\\n').map(l => '  ' + l).join('\\n')}`);
+    console.log(`  Body: [Redacted for security]`);
     console.log(`  ---------------------------------\n`);
   }
 }

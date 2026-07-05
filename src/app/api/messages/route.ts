@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 2. Fetch messages associated with this project
-    console.log(`[API GET] Fetching latest messages for Project: ${project.name} (id: ${project.id})...`);
+
     const messages = await prisma.message.findMany({
       where: { projectId: project.id },
       orderBy: {
@@ -192,7 +192,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Save directly to Supabase Postgres (Prisma)
-    console.log(`[API POST] Storing incoming message for project ${project.name}...`);
+
     const savedMessage = await prisma.message.create({
       data: {
         projectId: project.id,
@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
         ...aiMetrics
       },
     });
-    console.log(`[API POST] Saved message ${savedMessage.id} under project ${project.id}.`);
+
 
     // 6. Publish to Kafka event stream for asynchronous parallel worker notifications
     const published = await publishMessageEvent({
@@ -221,7 +221,7 @@ export async function POST(req: NextRequest) {
 
     // Fail-open: Direct webhook dispatch fallback if Kafka is down
     if (!published) {
-      console.log('[API POST] Kafka event stream is offline. Checking fallback direct channel dispatch...');
+
       
       if (project.discordEnabled && project.discordWebhook) {
         await sendDiscordNotification({
