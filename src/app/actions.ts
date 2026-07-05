@@ -188,7 +188,7 @@ export async function requestPasswordReset(email: string) {
     return { success: true, message: 'If an account exists, a reset link has been sent.' };
   } catch (error: any) {
     console.error('Failed to request password reset:', error);
-    return { success: false, message: 'An error occurred. Please try again.' };
+    return { success: false, message: 'An error occurred: ' + error.message };
   }
 }
 
