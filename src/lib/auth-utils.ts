@@ -103,11 +103,13 @@ export async function generateUsernameRecommendations(baseUsername: string): Pro
  * Triggers Welcome/Registration Success emails.
  * Integrates Nodemailer if SMTP details are configured, else writes mock files.
  */
-export async function sendWelcomeEmail(email: string, name: string, username: string, isDefaultPassword: boolean) {
+export async function sendWelcomeEmail(email: string, name: string, username: string, isDefaultPassword: boolean, verifyToken?: string) {
   const subject = 'Registration Successful on Strata';
+  const verifyLink = verifyToken ? `\n\nTo activate your account and enable email routing, please verify your email address by clicking the link below:\n${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/verify-email?token=${verifyToken}` : '';
   const body = `Welcome ${name}!
 
 Registration is successful.
+${verifyLink}
 
 Kindly change password upon login, default password is 12345678.
 

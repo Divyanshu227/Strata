@@ -13,10 +13,12 @@ model User {
   id        String    @id @default(uuid())
   name      String
   username  String    @unique
-  email     String    @unique
-  password  String
-  projects  Project[]
-  createdAt DateTime  @default(now())
+  email         String    @unique
+  password      String
+  emailVerified Boolean   @default(false)
+  verifyToken   String?
+  projects      Project[]
+  createdAt     DateTime  @default(now())
 }
 
 model Project {

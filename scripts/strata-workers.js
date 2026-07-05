@@ -71,7 +71,8 @@ async function run() {
         console.log(`🔎 [Dispatcher] Lookup settings for Project ID: ${msgPayload.projectId}`);
         // Fetch project notifications settings
         const project = await prisma.project.findUnique({
-          where: { id: msgPayload.projectId }
+          where: { id: msgPayload.projectId },
+          include: { owner: true }
         });
 
         if (!project) {
@@ -199,6 +200,11 @@ async function handleTelegramNotification(project, payload) {
 async function handleEmailNotification(project, payload) {
   if (!project.emailEnabled || !project.emailRecipient) {
     console.log(`  [Email Worker] Skipped (Disabled or missing recipient)`);
+    return;
+  }
+
+  if (project.owner && !project.owner.emailVerified) {
+    console.warn(`⚠️ [Email Worker] Skipped: Owner email is NOT verified. Routing disabled.`);
     return;
   }
 

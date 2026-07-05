@@ -148,7 +148,8 @@ export async function POST(req: NextRequest) {
     }
 
     const project = await prisma.project.findUnique({
-      where: { id: projectId }
+      where: { id: projectId },
+      include: { owner: true }
     });
 
     if (!project || project.apiKey !== apiKey) {
@@ -245,7 +246,7 @@ export async function POST(req: NextRequest) {
         }, project.telegramToken, project.telegramChatId, project.name);
       }
       
-      if (project.emailEnabled && project.emailRecipient) {
+      if (project.emailEnabled && project.emailRecipient && project.owner && project.owner.emailVerified) {
         await sendEmailNotification({
           name: savedMessage.name,
           email: savedMessage.email,
@@ -254,6 +255,8 @@ export async function POST(req: NextRequest) {
           spamClassification,
           spamScore: aiMetrics.spamScore,
         }, project.emailRecipient, project.name);
+      } else if (project.emailEnabled && (!project.owner || !project.owner.emailVerified)) {
+        console.warn(`⚠️ [API Route] Fallback email skipped: Owner email is NOT verified.`);
       }
     }
 

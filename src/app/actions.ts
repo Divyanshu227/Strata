@@ -1,5 +1,6 @@
 'use server';
 
+import crypto from 'crypto';
 import { prisma } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
@@ -31,9 +32,12 @@ export async function getCurrentUser() {
         name: true,
         username: true,
         email: true,
+        emailVerified: true,
         createdAt: true
       }
     });
+
+    if (!user) return null;
     return user;
   } catch (err) {
     return null;
@@ -90,12 +94,15 @@ export async function registerUser(data: {
 
     // Save hashed password User
     const hashedPassword = hashPassword(passwordRaw);
+    const verifyTokenStr = crypto.randomBytes(32).toString('hex');
     const user = await prisma.user.create({
       data: {
         name,
         email,
         username,
-        password: hashedPassword
+        password: hashedPassword,
+        verifyToken: verifyTokenStr,
+        emailVerified: false
       }
     });
 
@@ -122,17 +129,40 @@ export async function registerUser(data: {
     });
 
     // Dispatch welcome email success check
-    sendWelcomeEmail(email, name, username, isDefaultPassword).catch(err => {
+    sendWelcomeEmail(email, name, username, isDefaultPassword, verifyTokenStr).catch(err => {
       console.error('Welcome email failed:', err);
     });
 
     return { 
       success: true, 
-      user: { id: user.id, name: user.name, username: user.username, email: user.email } 
+      user: { id: user.id, name: user.name, username: user.username, email: user.email, emailVerified: user.emailVerified } 
     };
   } catch (error: any) {
     console.error('Registration failed:', error);
     return { success: false, error: 'server', message: error.message };
+  }
+}
+
+export async function resendVerificationEmail() {
+  try {
+    const user = await getCurrentUser();
+    if (!user) return { success: false, message: 'Unauthorized.' };
+    if (user.emailVerified) return { success: false, message: 'Email already verified.' };
+
+    const fullUser = await prisma.user.findUnique({ where: { id: user.id } });
+    if (!fullUser) return { success: false, message: 'User not found.' };
+
+    const verifyTokenStr = crypto.randomBytes(32).toString('hex');
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { verifyToken: verifyTokenStr }
+    });
+
+    await sendWelcomeEmail(fullUser.email, fullUser.name, fullUser.username, false, verifyTokenStr);
+    return { success: true, message: 'Verification email sent successfully!' };
+  } catch (error: any) {
+    console.error('Failed to resend verification email:', error);
+    return { success: false, message: error.message };
   }
 }
 

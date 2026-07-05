@@ -7,7 +7,9 @@ import {
   toggleMessageArchive, 
   deleteMessage,
   updateProjectSettings,
-  createNewProject
+  createNewProject,
+  logoutUser,
+  resendVerificationEmail
 } from './actions';
 import { getCachedMessages, setCachedMessages, CachedMessage } from '@/lib/indexed-db';
 import { UserData, ProjectData, Message } from '@/types/dashboard';
@@ -63,6 +65,7 @@ export default function DashboardClient({
   const [emailRecipient, setEmailRecipient] = useState(project.emailRecipient || '');
 
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isResending, setIsResending] = useState(false);
 
   useEffect(() => {
     setDiscordEnabled(project.discordEnabled);
@@ -108,6 +111,7 @@ export default function DashboardClient({
   const handleSaveSettings = async () => {
     setIsSavingSettings(true);
     triggerToast('Saving settings to Supabase...');
+    
     try {
       const updated = await updateProjectSettings(project.id, {
         discordEnabled,
@@ -118,13 +122,30 @@ export default function DashboardClient({
         emailEnabled,
         emailRecipient: emailRecipient.trim() || null,
       });
+
       setProject(updated);
-      triggerToast('Settings saved successfully!');
+      setProjects(prev => prev.map(p => p.id === updated.id ? updated : p));
+      triggerToast('Settings updated successfully!');
     } catch (err: any) {
-      console.error(err);
-      triggerToast('Failed to save settings: ' + err.message);
+      triggerToast('Error: ' + err.message);
     } finally {
       setIsSavingSettings(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setIsResending(true);
+    try {
+      const res = await resendVerificationEmail();
+      if (res.success) {
+        triggerToast('Verification email sent! Check your inbox.');
+      } else {
+        triggerToast('Failed: ' + res.message);
+      }
+    } catch (err: any) {
+      triggerToast('Error: ' + err.message);
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -309,16 +330,9 @@ export default function DashboardClient({
   const totalInbox = messages.filter(m => m.status !== 'archived').length;
 
   return (
-    <div className="appContainer">
-      {/* Toast Alert */}
-      {toastMessage && (
-        <div className="toast">
-          <Check size={16} />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
-      {/* 1. Sidebar Panel */}
+    <div className="dashboard-container" style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+      
+      {/* Sidebar Component */}
       <Sidebar 
         initialUser={initialUser}
         projects={projects}
@@ -330,41 +344,83 @@ export default function DashboardClient({
         setActiveView={setActiveView}
         unreadCount={unreadCount}
         setIsCreateModalOpen={setIsCreateModalOpen}
-        handleLogout={handleLogout}
+        handleLogout={async () => {
+          await logoutUser();
+          window.location.reload();
+        }}
       />
 
-      {/* Main View Router */}
-      {activeView === 'inbox' ? (
-        <>
-          {/* 2. Middle Panel: Messages List */}
-          <MessageList 
-            messages={messages}
-            filteredMessages={filteredMessages}
-            isOffline={isOffline}
-            isSyncing={isSyncing}
-            fetchLatestMessages={fetchLatestMessages}
-            triggerToast={triggerToast}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            setSelectedMessageId={setSelectedMessageId}
-            selectedMessageId={selectedMessageId}
-            totalInbox={totalInbox}
-            unreadCount={unreadCount}
-            archivedCount={archivedCount}
-          />
+      {/* Main Content Area */}
+      <div className="main-content" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+        
+        {/* Verification Banner */}
+        {initialUser.emailVerified === false && (
+          <div style={{ background: 'rgba(239, 68, 68, 0.1)', borderBottom: '1px solid rgba(239, 68, 68, 0.2)', color: 'var(--danger)', padding: '12px 24px', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontWeight: 600 }}>Action Required:</span> 
+              Please check your inbox to verify your email address. Email routing is disabled until verified.
+            </div>
+            <button 
+              onClick={handleResendVerification}
+              disabled={isResending}
+              style={{
+                background: 'rgba(239, 68, 68, 0.2)',
+                border: 'none',
+                color: 'var(--danger)',
+                padding: '4px 12px',
+                borderRadius: '4px',
+                cursor: isResending ? 'not-allowed' : 'pointer',
+                fontWeight: 600,
+                fontSize: '12px',
+                opacity: isResending ? 0.7 : 1
+              }}
+            >
+              {isResending ? 'Sending...' : 'Resend Email'}
+            </button>
+          </div>
+        )}
 
-          {/* 3. Right Panel: Selected Message Detail */}
-          <MessageDetail 
-            selectedMessage={selectedMessage}
-            handleToggleArchive={handleToggleArchive}
-            handleDelete={handleDelete}
-          />
-        </>
+        {/* Toast Alert */}
+        {toastMessage && (
+          <div className="toast">
+            <Check size={16} />
+            <span>{toastMessage}</span>
+          </div>
+        )}
+
+        {/* Main View Router */}
+        {activeView === 'inbox' ? (
+          <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+            {/* 2. Middle Panel: Messages List */}
+            <MessageList 
+              messages={messages}
+              filteredMessages={filteredMessages}
+              isOffline={isOffline}
+              isSyncing={isSyncing}
+              fetchLatestMessages={fetchLatestMessages}
+              triggerToast={triggerToast}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              setSelectedMessageId={setSelectedMessageId}
+              selectedMessageId={selectedMessageId}
+              totalInbox={totalInbox}
+              unreadCount={unreadCount}
+              archivedCount={archivedCount}
+            />
+
+            {/* 3. Right Panel: Selected Message Detail */}
+            <MessageDetail 
+              selectedMessage={selectedMessage}
+              handleToggleArchive={handleToggleArchive}
+              handleDelete={handleDelete}
+            />
+          </div>
       ) : (
         /* Settings & Integration View */
         <SettingsPane 
+          user={initialUser}
           project={project}
           messages={messages}
           unreadCount={unreadCount}
@@ -387,6 +443,7 @@ export default function DashboardClient({
           triggerToast={triggerToast}
         />
       )}
+      </div>
       
       {/* Create Project Modal */}
       {isCreateModalOpen && (

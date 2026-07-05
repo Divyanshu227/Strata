@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Settings, Inbox, AlertCircle, CheckSquare, Key, Check, Copy, Eye, EyeOff, Bot, Code } from 'lucide-react';
-import { ProjectData, Message } from '@/types/dashboard';
+import { UserData, ProjectData, Message } from '@/types/dashboard';
 
 interface SettingsPaneProps {
+  user: UserData;
   project: ProjectData;
   messages: Message[];
   unreadCount: number;
@@ -26,6 +27,7 @@ interface SettingsPaneProps {
 }
 
 export default function SettingsPane({
+  user,
   project,
   messages,
   unreadCount,
@@ -369,12 +371,14 @@ Please implement the API call, handling loading states, success messages, and er
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span style={{ fontSize: '14px', fontWeight: '600' }}>Email SMTP Alerts</span>
             </div>
-            <label className="switch" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px' }}>
+            <label className="switch" style={{ display: 'flex', alignItems: 'center', cursor: user.emailVerified ? 'pointer' : 'not-allowed', gap: '8px' }}>
               <input 
                 type="checkbox" 
                 checked={emailEnabled}
-                onChange={(e) => setEmailEnabled(e.target.checked)}
-                style={{ cursor: 'pointer' }}
+                onChange={(e) => user.emailVerified && setEmailEnabled(e.target.checked)}
+                disabled={!user.emailVerified}
+                title={!user.emailVerified ? 'Please verify your email address first.' : ''}
+                style={{ cursor: user.emailVerified ? 'pointer' : 'not-allowed' }}
               />
               <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
                 {emailEnabled ? 'Enabled' : 'Disabled'}
