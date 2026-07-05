@@ -416,7 +416,30 @@ async function sendContactMessage(name, email, subject, message) {
   "message": "Message sent successfully"
 }`;
 
-  const aiPrompt = `I am building a website and I want to use Strata as my contact form backend. Create a beautiful React contact form that sends a POST request to ${endpointUrl}. It must include the headers 'x-project-id: ${project.id}' and 'Authorization: Bearer ${project.apiKey}'. The JSON payload should include 'name', 'email', 'subject', and 'message'. Handle loading states and success/error messages.`;
+  const aiPrompt = `I have a website and I want to integrate Strata as my contact form backend. Please write the necessary code to send form submissions to my Strata endpoint.
+
+API DETAILS:
+- Endpoint: POST ${endpointUrl}
+- Required Headers: 
+  - "Content-Type": "application/json"
+  - "x-project-id": "YOUR_PROJECT_ID"
+  - "Authorization": "Bearer YOUR_API_KEY"
+
+PAYLOAD STRUCTURE (JSON):
+{
+  "name": "string (required)",
+  "email": "string (required)",
+  "subject": "string (optional)",
+  "message": "string (required)"
+}
+
+EXPECTED SUCCESS RESPONSE (200 OK):
+{
+  "success": true,
+  "message": "Message sent successfully"
+}
+
+Please implement the API call, handling loading states, success messages, and error states gracefully. Remember to keep the API keys out of client-side code if possible, or use environment variables.`;
 
   return (
     <div className="appContainer">
