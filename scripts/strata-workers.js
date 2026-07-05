@@ -31,7 +31,7 @@ const kafkaConfig = {
 };
 
 if (process.env.KAFKA_USERNAME && process.env.KAFKA_PASSWORD) {
-  kafkaConfig.ssl = true;
+  kafkaConfig.ssl = { rejectUnauthorized: false };
   kafkaConfig.sasl = {
     mechanism: 'plain',
     username: process.env.KAFKA_USERNAME,
