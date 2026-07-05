@@ -84,7 +84,7 @@ export default function AuthForm() {
       });
 
       if (response.success) {
-        window.location.reload();
+        window.location.href = '/';
       } else {
         if (response.error === 'username_taken' && response.recommendations) {
           setErrorMsg('That username is already taken. Please choose one of our recommendations below or write another.');
@@ -113,7 +113,7 @@ export default function AuthForm() {
       });
 
       if (response.success) {
-        window.location.reload();
+        window.location.href = '/';
       } else {
         setErrorMsg(response.message || 'Invalid username/email or password.');
       }

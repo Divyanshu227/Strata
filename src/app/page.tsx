@@ -1,5 +1,5 @@
 import DashboardClient from './DashboardClient';
-import AuthForm from './AuthForm';
+import LandingPage from './LandingPage';
 import { getCurrentUser } from './actions';
 import { prisma } from '@/lib/db';
 
@@ -9,7 +9,7 @@ export default async function Page() {
   const user = await getCurrentUser();
 
   if (!user) {
-    return <AuthForm />;
+    return <LandingPage />;
   }
 
   // Fetch all projects owned by the authenticated developer

@@ -26,8 +26,8 @@ const prisma = new PrismaClient({ adapter });
 const kafkaConfig = {
   clientId: 'strata-workers',
   brokers: brokers,
-  connectionTimeout: 3000,
-  requestTimeout: 3000
+  connectionTimeout: 10000,
+  requestTimeout: 30000
 };
 
 if (process.env.KAFKA_USERNAME && process.env.KAFKA_PASSWORD) {
