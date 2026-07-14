@@ -413,19 +413,30 @@ Please implement the API call, handling loading states, success messages, and er
           </div>
           
           {emailEnabled && (
-            <div className="configField">
-              <label className="configLabel" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                Recipient Email Address
-                <span style={{ fontSize: '10px', background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-muted)' }}>Locked for Security</span>
-              </label>
-              <input 
-                type="email" 
-                className="configInput" 
-                value={emailRecipient}
-                disabled
-                style={{ opacity: 0.7, cursor: 'not-allowed', background: 'var(--bg-tertiary)' }}
-                title="Emails can only be routed to the registered account owner's email address to prevent open-relay abuse."
-              />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="configField">
+                <label className="configLabel" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  Recipient Email Address
+                  <span style={{ fontSize: '10px', background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-muted)' }}>Locked for Security</span>
+                </label>
+                <input 
+                  type="email" 
+                  className="configInput" 
+                  value={emailRecipient}
+                  disabled
+                  style={{ opacity: 0.7, cursor: 'not-allowed', background: 'var(--bg-tertiary)' }}
+                  title="Emails can only be routed to the registered account owner's email address to prevent open-relay abuse."
+                />
+              </div>
+              <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                <strong>About Email Notifications:</strong>
+                <ul style={{ paddingLeft: '20px', marginTop: '8px', marginBottom: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <li>To prevent spam and open-relay abuse, email notifications can only be routed to the email address registered with this account.</li>
+                  <li>Ensure your email address is verified to enable this feature.</li>
+                  <li>Once enabled, any new form submissions will be automatically forwarded to your inbox.</li>
+                  <li>Check your spam or junk folder if you don&apos;t see the notifications, and mark them as &quot;Not Spam&quot; to ensure future delivery.</li>
+                </ul>
+              </div>
             </div>
           )}
         </div>
