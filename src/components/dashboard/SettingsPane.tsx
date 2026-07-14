@@ -316,9 +316,9 @@ Please implement the API call, handling loading states, success messages, and er
                 value={discordWebhook}
                 onChange={(e) => setDiscordWebhook(e.target.value)}
               />
-              <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                <strong>How to get a Discord Webhook URL:</strong>
-                <ol style={{ paddingLeft: '20px', marginTop: '8px', marginBottom: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <details style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>How to get a Discord Webhook URL?</summary>
+                <ol style={{ paddingLeft: '20px', marginTop: '12px', marginBottom: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <li>Open your Discord server and click on the server name to open the menu.</li>
                   <li>Select <strong>Server Settings</strong>.</li>
                   <li>In the left sidebar, navigate to <strong>Integrations</strong>.</li>
@@ -327,7 +327,7 @@ Please implement the API call, handling loading states, success messages, and er
                   <li>Click the <strong>Copy Webhook URL</strong> button.</li>
                   <li>Paste the URL in the input field above and click <strong>Save Settings</strong> at the bottom of the page.</li>
                 </ol>
-              </div>
+              </details>
             </div>
           )}
         </div>
@@ -375,9 +375,9 @@ Please implement the API call, handling loading states, success messages, and er
                   />
                 </div>
               </div>
-              <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                <strong>How to get a Telegram Bot Token and Chat ID:</strong>
-                <ol style={{ paddingLeft: '20px', marginTop: '8px', marginBottom: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <details style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>How to get a Telegram Bot Token and Chat ID?</summary>
+                <ol style={{ paddingLeft: '20px', marginTop: '12px', marginBottom: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <li>Open Telegram and search for <strong>@BotFather</strong>. Start a chat and type <code>/newbot</code>.</li>
                   <li>Follow the prompts to name your bot and choose a username. BotFather will give you a <strong>Bot API Token</strong>. Copy and paste it above.</li>
                   <li>Create a new Telegram group or channel where you want to receive notifications, and add your newly created bot to it.</li>
@@ -386,7 +386,7 @@ Please implement the API call, handling loading states, success messages, and er
                   <li>Look for <code>&quot;chat&quot;: &#123;&quot;id&quot;: -123456789&#125;</code> in the JSON response. Copy the number into the <strong>Chat Target ID</strong> field above.</li>
                   <li>Click <strong>Save Settings</strong> at the bottom of the page.</li>
                 </ol>
-              </div>
+              </details>
             </div>
           )}
         </div>
@@ -428,15 +428,15 @@ Please implement the API call, handling loading states, success messages, and er
                   title="Emails can only be routed to the registered account owner's email address to prevent open-relay abuse."
                 />
               </div>
-              <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                <strong>About Email Notifications:</strong>
-                <ul style={{ paddingLeft: '20px', marginTop: '8px', marginBottom: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <details style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>About Email Notifications</summary>
+                <ul style={{ paddingLeft: '20px', marginTop: '12px', marginBottom: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <li>To prevent spam and open-relay abuse, email notifications can only be routed to the email address registered with this account.</li>
                   <li>Ensure your email address is verified to enable this feature.</li>
                   <li>Once enabled, any new form submissions will be automatically forwarded to your inbox.</li>
                   <li>Check your spam or junk folder if you don&apos;t see the notifications, and mark them as &quot;Not Spam&quot; to ensure future delivery.</li>
                 </ul>
-              </div>
+              </details>
             </div>
           )}
         </div>
