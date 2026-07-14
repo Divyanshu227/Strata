@@ -110,7 +110,7 @@ export default function DashboardClient({
 
   const handleSaveSettings = async () => {
     setIsSavingSettings(true);
-    triggerToast('Saving settings to Supabase...');
+    triggerToast('Saving settings...');
     
     try {
       const updated = await updateProjectSettings(project.id, {
