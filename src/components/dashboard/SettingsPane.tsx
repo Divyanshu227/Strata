@@ -352,26 +352,40 @@ Please implement the API call, handling loading states, success messages, and er
           </div>
           
           {telegramEnabled && (
-            <div className="gridTwoCol">
-              <div className="configField">
-                <label className="configLabel">Bot API Token</label>
-                <input 
-                  type="password" 
-                  placeholder="123456789:ABCdefGhIJKlmNoPQRsT..." 
-                  className="configInput" 
-                  value={telegramToken}
-                  onChange={(e) => setTelegramToken(e.target.value)}
-                />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="gridTwoCol">
+                <div className="configField">
+                  <label className="configLabel">Bot API Token</label>
+                  <input 
+                    type="password" 
+                    placeholder="123456789:ABCdefGhIJKlmNoPQRsT..." 
+                    className="configInput" 
+                    value={telegramToken}
+                    onChange={(e) => setTelegramToken(e.target.value)}
+                  />
+                </div>
+                <div className="configField">
+                  <label className="configLabel">Chat Target ID</label>
+                  <input 
+                    type="text" 
+                    placeholder="-100123456789" 
+                    className="configInput" 
+                    value={telegramChatId}
+                    onChange={(e) => setTelegramChatId(e.target.value)}
+                  />
+                </div>
               </div>
-              <div className="configField">
-                <label className="configLabel">Chat Target ID</label>
-                <input 
-                  type="text" 
-                  placeholder="-100123456789" 
-                  className="configInput" 
-                  value={telegramChatId}
-                  onChange={(e) => setTelegramChatId(e.target.value)}
-                />
+              <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                <strong>How to get a Telegram Bot Token and Chat ID:</strong>
+                <ol style={{ paddingLeft: '20px', marginTop: '8px', marginBottom: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <li>Open Telegram and search for <strong>@BotFather</strong>. Start a chat and type <code>/newbot</code>.</li>
+                  <li>Follow the prompts to name your bot and choose a username. BotFather will give you a <strong>Bot API Token</strong>. Copy and paste it above.</li>
+                  <li>Create a new Telegram group or channel where you want to receive notifications, and add your newly created bot to it.</li>
+                  <li>Send a test message (e.g., &quot;hello&quot;) in the group.</li>
+                  <li>Open a browser tab and go to <code>https://api.telegram.org/bot&lt;YourBotToken&gt;/getUpdates</code> (replace &lt;YourBotToken&gt; with your actual token).</li>
+                  <li>Look for <code>&quot;chat&quot;: &#123;&quot;id&quot;: -123456789&#125;</code> in the JSON response. Copy the number into the <strong>Chat Target ID</strong> field above.</li>
+                  <li>Click <strong>Save Settings</strong> at the bottom of the page.</li>
+                </ol>
               </div>
             </div>
           )}
