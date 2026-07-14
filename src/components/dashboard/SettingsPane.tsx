@@ -307,7 +307,7 @@ Please implement the API call, handling loading states, success messages, and er
           </div>
           
           {discordEnabled && (
-            <div className="configField">
+            <div className="configField" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <label className="configLabel">Webhook URL</label>
               <input 
                 type="text" 
@@ -316,6 +316,18 @@ Please implement the API call, handling loading states, success messages, and er
                 value={discordWebhook}
                 onChange={(e) => setDiscordWebhook(e.target.value)}
               />
+              <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', padding: '12px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+                <strong>How to get a Discord Webhook URL:</strong>
+                <ol style={{ paddingLeft: '20px', marginTop: '8px', marginBottom: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <li>Open your Discord server and click on the server name to open the menu.</li>
+                  <li>Select <strong>Server Settings</strong>.</li>
+                  <li>In the left sidebar, navigate to <strong>Integrations</strong>.</li>
+                  <li>Click on <strong>Webhooks</strong> and then <strong>New Webhook</strong>.</li>
+                  <li>Customize the webhook&apos;s name and choose the channel where notifications should be sent.</li>
+                  <li>Click the <strong>Copy Webhook URL</strong> button.</li>
+                  <li>Paste the URL in the input field above and click <strong>Save Settings</strong> at the bottom of the page.</li>
+                </ol>
+              </div>
             </div>
           )}
         </div>
